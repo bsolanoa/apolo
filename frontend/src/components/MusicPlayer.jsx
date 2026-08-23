@@ -38,7 +38,12 @@ export default function MusicPlayer() {
 
   return (
     <div className="music-player">
-      <audio ref={audioRef} src={track.src} loop={false} onEnded={() => go(1)} />
+      {/* key={trackId}: fuerza un <audio> nuevo por track. Sin esto, cambiar
+          `src` en el mismo elemento puede interrumpir un play() en curso del
+          track anterior (el navegador tira "play() request was interrupted"),
+          el catch de más abajo apaga `playing`, y el siguiente track queda
+          cargado pero mudo — se siente como que "Siguiente" no responde. */}
+      <audio key={trackId} ref={audioRef} src={track.src} onEnded={() => go(1)} />
       <button type="button" className="music-btn" onClick={() => go(-1)} title="Anterior">
         ⏮
       </button>
