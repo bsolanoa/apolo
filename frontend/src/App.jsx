@@ -7,7 +7,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <header className="topbar">
-        <Link to="/" className="brand">🧩 Jigsaw Puzzle</Link>
+        <Link to="/" className="brand">🧩 Preciosa Puzzle</Link>
       </header>
       <Routes>
         <Route path="/" element={<Home />} />

@@ -1,4 +1,4 @@
-# Rompecabezas Online (Jigsaw Puzzle)
+# Preciosa Puzzle (Rompecabezas Online)
 
 Juego de rompecabezas jugable en modo **single player** o **multiplayer (2 jugadores máximo)**.
 En multiplayer, ambos jugadores ven el mismo tablero y mueven piezas en tiempo real; si un
