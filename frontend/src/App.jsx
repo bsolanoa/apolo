@@ -6,35 +6,36 @@ import Multiplayer from "./pages/Multiplayer.jsx";
 
 const MUSIC_SRC = "/music.m4a";
 const MUSIC_VOLUME = 0.35;
-const MUTE_STORAGE_KEY = "musicMuted";
+const PLAYING_STORAGE_KEY = "musicPlaying";
 
 export default function App() {
   const audioRef = useRef(null);
-  // Arranca silenciada por defecto: los navegadores bloquean el autoplay con
-  // sonido sin gesto del usuario. El botón de silenciar es ese gesto.
-  const [muted, setMuted] = useState(() => localStorage.getItem(MUTE_STORAGE_KEY) !== "false");
+  // Arranca detenida por defecto: los navegadores bloquean el autoplay con
+  // sonido sin gesto del usuario, así que el primer play siempre lo dispara
+  // el botón. Playing/paused real (no solo mute), y se recuerda entre visitas.
+  const [playing, setPlaying] = useState(() => localStorage.getItem(PLAYING_STORAGE_KEY) === "true");
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = MUSIC_VOLUME;
-    audio.muted = muted;
-    localStorage.setItem(MUTE_STORAGE_KEY, String(muted));
-    if (!muted) audio.play().catch(() => {});
-  }, [muted]);
+    localStorage.setItem(PLAYING_STORAGE_KEY, String(playing));
+    if (playing) audio.play().catch(() => setPlaying(false));
+    else audio.pause();
+  }, [playing]);
 
   return (
     <BrowserRouter>
-      <audio ref={audioRef} src={MUSIC_SRC} loop autoPlay muted={muted} />
+      <audio ref={audioRef} src={MUSIC_SRC} loop />
       <header className="topbar">
         <Link to="/" className="brand">🧩 Preciosa Puzzle</Link>
         <button
           type="button"
           className="music-toggle"
-          onClick={() => setMuted((m) => !m)}
-          title={muted ? "Activar música" : "Silenciar música"}
+          onClick={() => setPlaying((p) => !p)}
+          title={playing ? "Detener música" : "Reproducir música"}
         >
-          {muted ? "🔇" : "🔊"}
+          {playing ? "⏹️" : "▶️"}
         </button>
       </header>
       <Routes>
