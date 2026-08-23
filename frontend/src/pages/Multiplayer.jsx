@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
 import ImagePicker from "../components/ImagePicker.jsx";
@@ -39,6 +39,10 @@ export default function Multiplayer() {
     function onRoomState(nextRoom) {
       setRoom(nextRoom);
       setLockedPieces(deriveLockedPieces(nextRoom.puzzle));
+      // Un room:state siempre implica "no estamos en la pantalla de
+      // completado" (arranque, alguien se unió, o se reinició la partida).
+      setCompletedTime(null);
+      setElapsed(0);
     }
 
     function onPieceLocked({ pieceId, lockedBy }) {
@@ -49,8 +53,8 @@ export default function Multiplayer() {
       setRoom((prev) => updatePiece(prev, pieceId, { x, y }));
     }
 
-    function onPieceUpdated({ pieceId, x, y, placed }) {
-      setRoom((prev) => updatePiece(prev, pieceId, { x, y, placed }));
+    function onPieceUpdated({ pieceId, x, y, placed, placedBy }) {
+      setRoom((prev) => updatePiece(prev, pieceId, { x, y, placed, placedBy }));
       setLockedPieces((prev) => {
         const next = new Map(prev);
         next.delete(pieceId);
@@ -97,6 +101,27 @@ export default function Multiplayer() {
     return () => clearInterval(interval);
   }, [room?.status, room?.startedAt, completedTime]);
 
+  // El picker de "elegir otra foto" (tras completar) arranca mostrando la
+  // foto que se está jugando ahora mismo.
+  useEffect(() => {
+    if (room?.imageId) setSelectedImageId(room.imageId);
+  }, [room?.imageId]);
+
+  const contributions = useMemo(() => {
+    if (!room || completedTime === null) return [];
+    const counts = new Map();
+    for (const piece of room.puzzle.pieces) {
+      if (piece.placed && piece.placedBy) {
+        counts.set(piece.placedBy, (counts.get(piece.placedBy) || 0) + 1);
+      }
+    }
+    return room.players.map((p) => ({
+      socketId: p.socketId,
+      name: p.name,
+      count: counts.get(p.socketId) || 0,
+    }));
+  }, [room, completedTime]);
+
   function handleCreateRoom() {
     socketRef.current?.emit("room:create", { name, imageId: selectedImageId, rows: 8, cols: 8 }, (res) => {
       if (res?.ok) {
@@ -140,6 +165,12 @@ export default function Multiplayer() {
 
   function handleSendMessage(text) {
     socketRef.current?.emit("chat:message", { text });
+  }
+
+  function handleRestartGame() {
+    socketRef.current?.emit("game:restart", { imageId: selectedImageId }, (res) => {
+      if (!res?.ok) alert(`No se pudo reiniciar: ${res?.error}`);
+    });
   }
 
   if (!room) {
@@ -187,7 +218,33 @@ export default function Multiplayer() {
           </div>
         )}
         {completedTime !== null && (
-          <div className="banner success">¡Completado en {formatTime(completedTime)}!</div>
+          <div className="banner success completion-banner">
+            <div>¡Completado en {formatTime(completedTime)}!</div>
+            {contributions.length === 2 && (
+              <div className="contributions">
+                <span>
+                  {contributions[0].name}: {contributions[0].count} piezas
+                </span>
+                <span>
+                  {contributions[1].name}: {contributions[1].count} piezas
+                </span>
+                {contributions[0].count !== contributions[1].count && (
+                  <div className="contribution-winner">
+                    🏆{" "}
+                    {contributions[0].count > contributions[1].count
+                      ? contributions[0].name
+                      : contributions[1].name}{" "}
+                    aportó más piezas
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="restart-controls">
+              <p className="preview-label">Elegí la foto para la siguiente ronda</p>
+              <ImagePicker selectedId={selectedImageId} onSelect={setSelectedImageId} />
+              <button onClick={handleRestartGame}>Jugar de nuevo</button>
+            </div>
+          </div>
         )}
         {room.status === "playing" && completedTime === null && <div className="timer">⏱ {formatTime(elapsed)}</div>}
       </div>

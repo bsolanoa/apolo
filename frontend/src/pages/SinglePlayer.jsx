@@ -68,6 +68,9 @@ export default function SinglePlayer() {
   function handleSelectImage(imageId) {
     setSelectedImageId(imageId);
     setPuzzle(buildPuzzle(imageId));
+    setElapsed(0);
+    setCompleted(false);
+    setStarted(false);
   }
 
   function handleStart() {
@@ -86,7 +89,7 @@ export default function SinglePlayer() {
     <div className="page">
       <div className="hud">
         <h2>Single Player</h2>
-        <ImagePicker selectedId={selectedImageId} onSelect={handleSelectImage} disabled={started} />
+        <ImagePicker selectedId={selectedImageId} onSelect={handleSelectImage} disabled={started && !completed} />
         <PuzzlePreview imageUrl={puzzle.imageUrl} boardWidth={puzzle.boardWidth} boardHeight={puzzle.boardHeight} />
         {!started && <button onClick={handleStart}>Comenzar</button>}
         {started && <div className="timer">⏱ {formatTime(elapsed)}</div>}

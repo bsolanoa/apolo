@@ -4,6 +4,7 @@ import {
   addPlayerToRoom,
   removePlayerFromRoom,
   startGame,
+  restartGame,
   findPiece,
   isPuzzleComplete,
   publicRoomState,
@@ -20,6 +21,7 @@ export function registerSocketHandlers(io) {
     socket.on("room:create", ({ name, rows, cols, imageId } = {}, cb) => {
       const image = findImage(imageId);
       const room = createRoom({
+        imageId: image.id,
         imageUrl: image.src,
         imageWidth: image.width,
         imageHeight: image.height,
@@ -108,12 +110,16 @@ export function registerSocketHandlers(io) {
       piece.placed = snapped;
       piece.locked = false;
       piece.lockedBy = null;
+      // Quién la encajó, para poder mostrar al final cuántas piezas aportó
+      // cada jugador. Solo se registra la primera vez que queda bien puesta.
+      if (snapped && !piece.placedBy) piece.placedBy = socket.id;
 
       io.to(room.id).emit("piece:updated", {
         pieceId,
         x: piece.x,
         y: piece.y,
         placed: piece.placed,
+        placedBy: piece.placedBy,
       });
 
       if (isPuzzleComplete(room)) {
@@ -121,6 +127,35 @@ export function registerSocketHandlers(io) {
       }
 
       cb?.({ ok: true, placed: piece.placed });
+    });
+
+    // Rearma el rompecabezas en la misma sala (misma foto u otra elegida)
+    // una vez terminada la partida, sin tener que crear una sala nueva.
+    socket.on("game:restart", ({ imageId } = {}, cb) => {
+      const roomId = socket.data.roomId;
+      const room = getRoom(roomId);
+      if (!room) {
+        cb?.({ ok: false, error: "ROOM_NOT_FOUND" });
+        return;
+      }
+
+      const image = findImage(imageId || room.imageId);
+      const result = restartGame({
+        roomId,
+        imageId: image.id,
+        imageUrl: image.src,
+        imageWidth: image.width,
+        imageHeight: image.height,
+        rows: 8,
+        cols: 8,
+      });
+      if (result.error) {
+        cb?.({ ok: false, error: result.error });
+        return;
+      }
+
+      io.to(roomId).emit("room:state", publicRoomState(result.room));
+      cb?.({ ok: true });
     });
 
     // Chat simple entre los 2 jugadores de la sala: solo se reenvía en vivo,

@@ -218,6 +218,33 @@ body {
   color: #bbf7d0;
 }
 
+.completion-banner {
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+}
+
+.contributions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+
+.contribution-winner {
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.restart-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .lobby {
   gap: 12px;
 }
