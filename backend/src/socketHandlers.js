@@ -10,17 +10,20 @@ import {
 } from "./rooms.js";
 import { isNearCorrectPosition } from "./puzzleUtils.js";
 import { saveResult } from "./supabaseClient.js";
-
-// Ruta relativa: la resuelve el navegador de cada jugador contra el origen
-// del frontend (donde vive public/foto1.jpg), no contra el del backend.
-const DEFAULT_IMAGE = "/foto1.jpg";
+import { findImage } from "./imageCatalog.js";
 
 export function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
-    socket.on("room:create", ({ name, rows, cols, imageUrl } = {}, cb) => {
+    // El cliente manda un `imageId` (no la URL/width/height directo) y el
+    // server resuelve contra su propio catálogo — así la fuente de verdad
+    // del tamaño del tablero en multiplayer es siempre el backend.
+    socket.on("room:create", ({ name, rows, cols, imageId } = {}, cb) => {
+      const image = findImage(imageId);
       const room = createRoom({
-        imageUrl: imageUrl || DEFAULT_IMAGE,
-        rows: rows || 6,
+        imageUrl: image.src,
+        imageWidth: image.width,
+        imageHeight: image.height,
+        rows: rows || 8,
         cols: cols || 8,
       });
       const { room: updated } = addPlayerToRoom(room.id, socket.id, name);
@@ -118,6 +121,22 @@ export function registerSocketHandlers(io) {
       }
 
       cb?.({ ok: true, placed: piece.placed });
+    });
+
+    // Chat simple entre los 2 jugadores de la sala: solo se reenvía en vivo,
+    // no se persiste ni se guarda historial (se pierde al refrescar, igual
+    // que el resto del estado de la sala).
+    socket.on("chat:message", ({ text } = {}) => {
+      const roomId = socket.data.roomId;
+      const trimmed = typeof text === "string" ? text.trim().slice(0, 300) : "";
+      if (!roomId || !trimmed) return;
+
+      io.to(roomId).emit("chat:message", {
+        text: trimmed,
+        from: socket.data.name || "Jugador",
+        socketId: socket.id,
+        ts: Date.now(),
+      });
     });
 
     socket.on("disconnect", () => {

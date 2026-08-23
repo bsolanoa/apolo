@@ -1,14 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
+import ImagePicker from "../components/ImagePicker.jsx";
 import { generatePuzzle, isNearCorrectPosition } from "../utils/puzzleGenerator.js";
 import { formatTime } from "../utils/formatTime.js";
 import { saveSinglePlayerResult } from "../supabaseClient.js";
+import { DEFAULT_IMAGE, findImage } from "../imageCatalog.js";
 
-const DEFAULT_IMAGE = "/foto1.jpg";
+function buildPuzzle(imageId) {
+  const image = findImage(imageId);
+  return generatePuzzle({
+    rows: 8,
+    cols: 8,
+    imageUrl: image.src,
+    imageWidth: image.width,
+    imageHeight: image.height,
+  });
+}
 
 export default function SinglePlayer() {
-  const [puzzle, setPuzzle] = useState(() => generatePuzzle({ rows: 6, cols: 8, imageUrl: DEFAULT_IMAGE }));
+  const [selectedImageId, setSelectedImageId] = useState(DEFAULT_IMAGE.id);
+  const [puzzle, setPuzzle] = useState(() => buildPuzzle(DEFAULT_IMAGE.id));
   const [started, setStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [completed, setCompleted] = useState(false);
@@ -53,13 +65,18 @@ export default function SinglePlayer() {
     });
   }
 
+  function handleSelectImage(imageId) {
+    setSelectedImageId(imageId);
+    setPuzzle(buildPuzzle(imageId));
+  }
+
   function handleStart() {
     startRef.current = Date.now();
     setStarted(true);
   }
 
   function handleRestart() {
-    setPuzzle(generatePuzzle({ rows: 6, cols: 8, imageUrl: DEFAULT_IMAGE }));
+    setPuzzle(buildPuzzle(selectedImageId));
     setElapsed(0);
     setCompleted(false);
     setStarted(false);
@@ -69,6 +86,7 @@ export default function SinglePlayer() {
     <div className="page">
       <div className="hud">
         <h2>Single Player</h2>
+        <ImagePicker selectedId={selectedImageId} onSelect={handleSelectImage} disabled={started} />
         <PuzzlePreview imageUrl={puzzle.imageUrl} boardWidth={puzzle.boardWidth} boardHeight={puzzle.boardHeight} />
         {!started && <button onClick={handleStart}>Comenzar</button>}
         {started && <div className="timer">⏱ {formatTime(elapsed)}</div>}

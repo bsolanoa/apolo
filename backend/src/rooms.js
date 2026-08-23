@@ -8,14 +8,14 @@ function makeRoomId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export function createRoom({ imageUrl, rows, cols }) {
+export function createRoom({ imageUrl, imageWidth, imageHeight, rows, cols }) {
   let roomId = makeRoomId();
   while (rooms.has(roomId)) roomId = makeRoomId();
 
   const room = {
     id: roomId,
     players: [], // { socketId, name }
-    puzzle: generatePuzzle({ rows, cols, imageUrl }),
+    puzzle: generatePuzzle({ rows, cols, imageUrl, imageWidth, imageHeight }),
     status: "waiting", // waiting (falta un jugador) | ready (2 jugadores, esperando "Comenzar") | playing | finished
     startedAt: null,
     finishedAt: null,

@@ -5,12 +5,19 @@
 // entre piezas vecinas) y las dispersa alrededor del tablero permitiendo
 // superposición, como en un rompecabezas real.
 
-// Proporción 856x600 (~1.43:1) elegida para calzar con el aspect ratio de
-// foto1.jpg (1200x840) sin estirarla de forma notoria, y ser divisible
-// limpiamente por una grilla de 8x6 = 48 piezas.
-export const BOARD_WIDTH = 856;
-export const BOARD_HEIGHT = 600;
+// El tablero mantiene siempre la misma área aproximada (la de la proporción
+// original 856x600, elegida para foto1.jpg) pero adapta ancho/alto al aspect
+// ratio de la foto elegida, para no estirarla — ver imageCatalog.js. La
+// grilla queda fija en 8x8 = 64 piezas para cualquier foto.
+const BOARD_AREA = 856 * 600;
+const DEFAULT_ASPECT = 856 / 600;
 export const SNAP_THRESHOLD = 22;
+
+function boardDimsForAspect(aspect = DEFAULT_ASPECT) {
+  const width = Math.sqrt(BOARD_AREA * aspect);
+  const height = BOARD_AREA / width;
+  return { width, height };
+}
 
 function uniform(min, max) {
   return min + Math.random() * (max - min);
@@ -132,7 +139,10 @@ function scatterPieces(pieces, { stageWidth, stageHeight, boardOffsetX, boardOff
   });
 }
 
-export function generatePuzzle({ rows = 4, cols = 4, imageUrl }) {
+export function generatePuzzle({ rows = 8, cols = 8, imageUrl, imageWidth, imageHeight }) {
+  const aspect = imageWidth && imageHeight ? imageWidth / imageHeight : DEFAULT_ASPECT;
+  const { width: BOARD_WIDTH, height: BOARD_HEIGHT } = boardDimsForAspect(aspect);
+
   const pw = BOARD_WIDTH / cols;
   const ph = BOARD_HEIGHT / rows;
   const margin = Math.max(220, pw * 0.75, ph * 0.75);

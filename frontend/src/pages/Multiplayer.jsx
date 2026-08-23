@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
+import ImagePicker from "../components/ImagePicker.jsx";
+import ChatPanel from "../components/ChatPanel.jsx";
 import { useSocket } from "../hooks/useSocket.js";
 import { formatTime } from "../utils/formatTime.js";
+import { DEFAULT_IMAGE } from "../imageCatalog.js";
 
 const MOVE_THROTTLE_MS = 40;
 
@@ -21,10 +24,12 @@ export default function Multiplayer() {
   const { socketRef, connected, socketId } = useSocket();
   const [name, setName] = useState("");
   const [joinRoomId, setJoinRoomId] = useState("");
+  const [selectedImageId, setSelectedImageId] = useState(DEFAULT_IMAGE.id);
   const [room, setRoom] = useState(null); // room state from server
   const [lockedPieces, setLockedPieces] = useState(new Map());
   const [elapsed, setElapsed] = useState(0);
   const [completedTime, setCompletedTime] = useState(null);
+  const [messages, setMessages] = useState([]);
   const lastMoveEmitRef = useRef(0);
 
   useEffect(() => {
@@ -61,12 +66,17 @@ export default function Multiplayer() {
       setLockedPieces(new Map());
     }
 
+    function onChatMessage(message) {
+      setMessages((prev) => [...prev, message]);
+    }
+
     socket.on("room:state", onRoomState);
     socket.on("piece:locked", onPieceLocked);
     socket.on("piece:moved", onPieceMoved);
     socket.on("piece:updated", onPieceUpdated);
     socket.on("game:completed", onGameCompleted);
     socket.on("player:left", onPlayerLeft);
+    socket.on("chat:message", onChatMessage);
 
     return () => {
       socket.off("room:state", onRoomState);
@@ -75,6 +85,7 @@ export default function Multiplayer() {
       socket.off("piece:updated", onPieceUpdated);
       socket.off("game:completed", onGameCompleted);
       socket.off("player:left", onPlayerLeft);
+      socket.off("chat:message", onChatMessage);
     };
   }, [socketRef]);
 
@@ -87,7 +98,7 @@ export default function Multiplayer() {
   }, [room?.status, room?.startedAt, completedTime]);
 
   function handleCreateRoom() {
-    socketRef.current?.emit("room:create", { name, rows: 6, cols: 8 }, (res) => {
+    socketRef.current?.emit("room:create", { name, imageId: selectedImageId, rows: 8, cols: 8 }, (res) => {
       if (res?.ok) {
         setRoom(res.room);
         setLockedPieces(deriveLockedPieces(res.room.puzzle));
@@ -127,12 +138,22 @@ export default function Multiplayer() {
     socketRef.current?.emit("piece:release", { pieceId, x, y });
   }
 
+  function handleSendMessage(text) {
+    socketRef.current?.emit("chat:message", { text });
+  }
+
   if (!room) {
     return (
       <div className="page lobby">
         <h2>Multiplayer</h2>
         <p>{connected ? "Conectado al servidor" : "Conectando..."}</p>
         <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
+        <div>
+          <p className="preview-label" style={{ textAlign: "center" }}>
+            Elegí la foto (la arma quien crea la sala)
+          </p>
+          <ImagePicker selectedId={selectedImageId} onSelect={setSelectedImageId} />
+        </div>
         <div className="lobby-actions">
           <button onClick={handleCreateRoom}>Crear sala</button>
           <div className="join-row">
@@ -171,15 +192,18 @@ export default function Multiplayer() {
         {room.status === "playing" && completedTime === null && <div className="timer">⏱ {formatTime(elapsed)}</div>}
       </div>
 
-      <PuzzleBoard
-        puzzle={room.puzzle}
-        lockedPieces={lockedPieces}
-        mySocketId={socketId}
-        interactive={room.status === "playing"}
-        onPieceDragStart={handleDragStart}
-        onPieceDragMove={handleDragMove}
-        onPieceDragEnd={handleDragEnd}
-      />
+      <div className="game-layout">
+        <PuzzleBoard
+          puzzle={room.puzzle}
+          lockedPieces={lockedPieces}
+          mySocketId={socketId}
+          interactive={room.status === "playing"}
+          onPieceDragStart={handleDragStart}
+          onPieceDragMove={handleDragMove}
+          onPieceDragEnd={handleDragEnd}
+        />
+        <ChatPanel messages={messages} mySocketId={socketId} onSend={handleSendMessage} />
+      </div>
     </div>
   );
 }
