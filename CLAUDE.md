@@ -66,13 +66,13 @@ el material de referencia original (fotos sin optimizar).
 
 ## Stack (elegido para que todo corra en tiers 100% gratuitos)
 
-Deploy actual: frontend en Vercel (URL_FRONTEND_PENDIENTE), backend en Render
-(URL_BACKEND_PENDIENTE), repo en https://github.com/bsolanoa/apolo, base de datos en
-un proyecto Supabase propio (ref `fjsoffjgrwneoopauqel`, región `sa-east-1`) — separado
-del proyecto Supabase de `piezas`. El frontend en Vercel se deployea por CLI
-(`vercel --prod` desde `frontend/`), no está conectado por Git — un `git push` a `main`
-**no** lo actualiza solo (a diferencia del backend en Render, que sí tiene auto-deploy
-desde GitHub).
+Deploy actual: frontend en Vercel (https://apolo-beta.vercel.app), backend en Render
+(https://apolo-9kjq.onrender.com), repo en https://github.com/bsolanoa/apolo, base de
+datos en un proyecto Supabase propio (ref `fjsoffjgrwneoopauqel`, región `sa-east-1`)
+— totalmente separado del proyecto Supabase de `piezas`. El frontend en Vercel se
+deployea por CLI (`vercel --prod` desde `frontend/`), no está conectado por Git — un
+`git push` a `main` **no** lo actualiza solo (a diferencia del backend en Render, que
+sí tiene auto-deploy desde GitHub).
 
 - **Frontend** (`frontend/`): React + Vite + Konva/react-konva (canvas para renderizar y
   arrastrar piezas) + socket.io-client.
