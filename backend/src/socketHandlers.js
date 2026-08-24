@@ -10,24 +10,47 @@ import {
   publicRoomState,
 } from "./rooms.js";
 import { isNearCorrectPosition } from "./puzzleUtils.js";
-import { saveResult } from "./supabaseClient.js";
-import { findImage } from "./imageCatalog.js";
+import { saveResult, SUPABASE_URL } from "./supabaseClient.js";
+import { findPieceLevel, gridForPieceCount } from "./pieceLevels.js";
+
+// La foto ya no viene de un catálogo fijo: el jugador la sube antes por
+// POST /api/upload (ver upload.js), que devuelve una URL de Supabase
+// Storage + el width/height medidos de los bytes reales. Acá solo se
+// valida que la URL efectivamente apunte a ese bucket (para no reenviar al
+// otro jugador una URL arbitraria) y que las dimensiones sean coherentes;
+// la cantidad de piezas se resuelve contra `pieceLevels.js` igual que antes
+// se resolvía la foto contra imageCatalog.js — el cliente nunca decide
+// directamente filas/columnas.
+function resolvePuzzleInput({ imageUrl, imageWidth, imageHeight, level }) {
+  const expectedPrefix = SUPABASE_URL ? `${SUPABASE_URL}/storage/v1/object/public/puzzle-photos/` : null;
+  if (
+    typeof imageUrl !== "string" ||
+    !expectedPrefix ||
+    !imageUrl.startsWith(expectedPrefix) ||
+    !Number.isFinite(imageWidth) ||
+    !Number.isFinite(imageHeight) ||
+    imageWidth <= 0 ||
+    imageHeight <= 0
+  ) {
+    return { error: "INVALID_IMAGE" };
+  }
+
+  const { count } = findPieceLevel(level);
+  const { rows, cols } = gridForPieceCount(count, imageWidth / imageHeight);
+
+  return { imageUrl, imageWidth, imageHeight, rows, cols };
+}
 
 export function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
-    // El cliente manda un `imageId` (no la URL/width/height directo) y el
-    // server resuelve contra su propio catálogo — así la fuente de verdad
-    // del tamaño del tablero en multiplayer es siempre el backend.
-    socket.on("room:create", ({ name, rows, cols, imageId } = {}, cb) => {
-      const image = findImage(imageId);
-      const room = createRoom({
-        imageId: image.id,
-        imageUrl: image.src,
-        imageWidth: image.width,
-        imageHeight: image.height,
-        rows: rows || 8,
-        cols: cols || 8,
-      });
+    socket.on("room:create", ({ name, imageUrl, imageWidth, imageHeight, level } = {}, cb) => {
+      const resolved = resolvePuzzleInput({ imageUrl, imageWidth, imageHeight, level });
+      if (resolved.error) {
+        cb?.({ ok: false, error: resolved.error });
+        return;
+      }
+
+      const room = createRoom(resolved);
       const { room: updated } = addPlayerToRoom(room.id, socket.id, name);
 
       socket.join(room.id);
@@ -131,7 +154,7 @@ export function registerSocketHandlers(io) {
 
     // Rearma el rompecabezas en la misma sala (misma foto u otra elegida)
     // una vez terminada la partida, sin tener que crear una sala nueva.
-    socket.on("game:restart", ({ imageId } = {}, cb) => {
+    socket.on("game:restart", ({ imageUrl, imageWidth, imageHeight, level } = {}, cb) => {
       const roomId = socket.data.roomId;
       const room = getRoom(roomId);
       if (!room) {
@@ -139,16 +162,13 @@ export function registerSocketHandlers(io) {
         return;
       }
 
-      const image = findImage(imageId || room.imageId);
-      const result = restartGame({
-        roomId,
-        imageId: image.id,
-        imageUrl: image.src,
-        imageWidth: image.width,
-        imageHeight: image.height,
-        rows: 8,
-        cols: 8,
-      });
+      const resolved = resolvePuzzleInput({ imageUrl, imageWidth, imageHeight, level });
+      if (resolved.error) {
+        cb?.({ ok: false, error: resolved.error });
+        return;
+      }
+
+      const result = restartGame({ roomId, ...resolved });
       if (result.error) {
         cb?.({ ok: false, error: result.error });
         return;

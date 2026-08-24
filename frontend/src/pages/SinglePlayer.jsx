@@ -1,26 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
-import ImagePicker from "../components/ImagePicker.jsx";
+import PhotoUploader from "../components/PhotoUploader.jsx";
+import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
 import { generatePuzzle, isNearCorrectPosition } from "../utils/puzzleGenerator.js";
 import { formatTime } from "../utils/formatTime.js";
 import { saveSinglePlayerResult } from "../supabaseClient.js";
-import { DEFAULT_IMAGE, findImage } from "../imageCatalog.js";
+import { readImageDimensions, validateDimensions } from "../utils/photoValidation.js";
+import { DEFAULT_PIECE_LEVEL, findPieceLevel, gridForPieceCount } from "../utils/pieceLevels.js";
 
-function buildPuzzle(imageId) {
-  const image = findImage(imageId);
-  return generatePuzzle({
-    rows: 8,
-    cols: 8,
-    imageUrl: image.src,
-    imageWidth: image.width,
-    imageHeight: image.height,
-  });
+// Todo corre en el cliente: la foto que sube el jugador no necesita pasar
+// por el backend (a diferencia de multiplayer, acá nadie más la tiene que
+// ver), así que se usa directo como object URL.
+function buildPuzzle(photo, levelId) {
+  const { count } = findPieceLevel(levelId);
+  const { rows, cols } = gridForPieceCount(count, photo.width / photo.height);
+  return generatePuzzle({ rows, cols, imageUrl: photo.url, imageWidth: photo.width, imageHeight: photo.height });
 }
 
 export default function SinglePlayer() {
-  const [selectedImageId, setSelectedImageId] = useState(DEFAULT_IMAGE.id);
-  const [puzzle, setPuzzle] = useState(() => buildPuzzle(DEFAULT_IMAGE.id));
+  const [photo, setPhoto] = useState(null); // { url, width, height }
+  const [pieceLevel, setPieceLevel] = useState(DEFAULT_PIECE_LEVEL.id);
+  const [puzzle, setPuzzle] = useState(null);
   const [started, setStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [completed, setCompleted] = useState(false);
@@ -34,7 +35,7 @@ export default function SinglePlayer() {
     return () => clearInterval(interval);
   }, [started, completed]);
 
-  const allPlaced = useMemo(() => puzzle.pieces.every((p) => p.placed), [puzzle]);
+  const allPlaced = useMemo(() => (puzzle ? puzzle.pieces.every((p) => p.placed) : false), [puzzle]);
 
   useEffect(() => {
     if (started && allPlaced && !completed) {
@@ -48,6 +49,30 @@ export default function SinglePlayer() {
       });
     }
   }, [started, allPlaced, completed]);
+
+  function resetGame(nextPhoto, nextLevel) {
+    setPuzzle(buildPuzzle(nextPhoto, nextLevel));
+    setElapsed(0);
+    setCompleted(false);
+    setStarted(false);
+  }
+
+  async function handleFile(file) {
+    const { width, height, url } = await readImageDimensions(file);
+    const dimError = validateDimensions(width, height);
+    if (dimError) {
+      URL.revokeObjectURL(url);
+      throw new Error(dimError);
+    }
+    const nextPhoto = { url, width, height };
+    setPhoto(nextPhoto);
+    resetGame(nextPhoto, pieceLevel);
+  }
+
+  function handleLevelChange(levelId) {
+    setPieceLevel(levelId);
+    if (photo) resetGame(photo, levelId);
+  }
 
   function handleDragEnd(pieceId, x, y) {
     setPuzzle((prev) => {
@@ -65,39 +90,32 @@ export default function SinglePlayer() {
     });
   }
 
-  function handleSelectImage(imageId) {
-    setSelectedImageId(imageId);
-    setPuzzle(buildPuzzle(imageId));
-    setElapsed(0);
-    setCompleted(false);
-    setStarted(false);
-  }
-
   function handleStart() {
     startRef.current = Date.now();
     setStarted(true);
   }
 
   function handleRestart() {
-    setPuzzle(buildPuzzle(selectedImageId));
-    setElapsed(0);
-    setCompleted(false);
-    setStarted(false);
+    resetGame(photo, pieceLevel);
   }
 
   return (
     <div className="page">
       <div className="hud">
         <h2>Single Player</h2>
-        <ImagePicker selectedId={selectedImageId} onSelect={handleSelectImage} disabled={started && !completed} />
-        <PuzzlePreview imageUrl={puzzle.imageUrl} boardWidth={puzzle.boardWidth} boardHeight={puzzle.boardHeight} />
-        {!started && <button onClick={handleStart}>Comenzar</button>}
+        <PhotoUploader previewUrl={photo?.url} onFile={handleFile} disabled={started && !completed} />
+        <PieceLevelPicker selectedId={pieceLevel} onSelect={handleLevelChange} disabled={started && !completed} />
+        {puzzle && (
+          <PuzzlePreview imageUrl={puzzle.imageUrl} boardWidth={puzzle.boardWidth} boardHeight={puzzle.boardHeight} />
+        )}
+        {!puzzle && <p className="preview-label">Subí una foto para poder armar el rompecabezas.</p>}
+        {puzzle && !started && <button onClick={handleStart}>Comenzar</button>}
         {started && <div className="timer">⏱ {formatTime(elapsed)}</div>}
         {completed && <div className="banner success">¡Completado en {formatTime(elapsed)}!</div>}
         {started && <button onClick={handleRestart}>Reiniciar</button>}
       </div>
 
-      <PuzzleBoard puzzle={puzzle} interactive={started} onPieceDragEnd={handleDragEnd} />
+      {puzzle && <PuzzleBoard puzzle={puzzle} interactive={started} onPieceDragEnd={handleDragEnd} />}
     </div>
   );
 }

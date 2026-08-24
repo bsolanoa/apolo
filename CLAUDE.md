@@ -20,7 +20,7 @@ No hay autenticación de usuarios, leaderboards ni perfiles — fuera de alcance
 ## Piezas: recorte tipo jigsaw real (no rectángulos)
 
 Cada pieza tiene tabs/blancos con forma de "botón redondo sobre cuello angosto" (clásico
-rompecabezas infantil, ver `sources/ejemplo.png`), generados con curvas Bézier propias —
+rompecabezas infantil), generados con curvas Bézier propias —
 **no** es un puerto de ningún generador de terceros (el de referencia investigado,
 Draradech/jigsaw, no tiene licencia declarada; se reimplementó la técnica desde cero). Cada
 borde interior de la grilla se calcula una sola vez y las dos piezas vecinas que lo comparten
@@ -33,19 +33,52 @@ Las piezas se dispersan en las 4 franjas alrededor del tablero (arriba/abajo/izq
 llegar a una pieza tapada hay que mover primero la que está encima. El z-order de piezas
 superpuestas es solo local a cada cliente (no sincronizado entre jugadores).
 
-## Fotos y tamaño de grilla
+## Fotos: las sube el propio jugador (no hay catálogo fijo)
 
-Catálogo de 4 fotos para elegir (`frontend/src/imageCatalog.js`, duplicado en
-`backend/src/imageCatalog.js` porque el server no sirve `frontend/public/` y necesita
-igual el width/height de cada una — mismo patrón de duplicación que puzzleUtils.js /
-puzzleGenerator.js). Grilla fija en **8x8 = 64 piezas** para cualquier foto. El tablero
-mantiene siempre la misma área aproximada (la de la proporción original 856x600, pensada
-para `foto1.jpg`) pero adapta ancho/alto al aspect ratio de la foto elegida
-(`boardDimsForAspect()`) para no estirarla — así una foto vertical no queda deformada en
-un tablero horizontal. En multiplayer el cliente solo manda un `imageId`; el server
-resuelve src/width/height contra su propio catálogo, nunca contra lo que mande el cliente
-— la fuente de verdad del tamaño del tablero es siempre el backend. Ver `sources/` para
-el material de referencia original (fotos sin optimizar).
+No hay catálogo de fotos predefinidas — cada jugador sube su propia foto
+(`frontend/src/components/PhotoUploader.jsx`). Restricciones (mismos valores
+duplicados en `frontend/src/utils/photoValidation.js` para feedback inmediato
+y en `backend/src/photoLimits.js`, que es quien realmente los hace cumplir):
+JPG/PNG/WEBP, máx 8MB, entre 300 y 6000px de lado.
+
+- **Single player**: todo corre en el cliente, la foto se usa directo como
+  object URL local (`URL.createObjectURL`) — no pasa por el backend ni se
+  sube a ningún lado.
+- **Multiplayer**: la foto la sube quien crea la sala (o quien reinicia la
+  partida) por `POST /api/upload` (`backend/src/upload.js`) — necesita estar
+  accesible para el otro jugador, así que no alcanza con una object URL
+  local. El backend mide el ancho/alto real de los bytes recibidos con
+  `image-size` (nunca confía en lo que reporte el cliente) y sube el archivo
+  a un bucket público de Supabase Storage (`puzzle-photos`); devuelve
+  `{ url, width, height }`, y esa URL es la que se manda por Socket.io en
+  `room:create` / `game:restart`. El server valida que la URL efectivamente
+  apunte a ese bucket antes de aceptarla — la fuente de verdad del tamaño
+  del tablero en multiplayer sigue siendo siempre el backend, ahora sobre
+  una foto arbitraria en vez de un catálogo fijo.
+- `image-size` detecta el formato por los primeros bytes del archivo, no por
+  el mimetype declarado, y tiene parsers de otros formatos (ICNS/JXL/HEIF)
+  vulnerables a DoS por loop infinito sin fix disponible (GHSA-w3rx-r6r6-pgpr,
+  GHSA-5p2g-fcmc-qvqq) — por eso `upload.js` valida la firma real del
+  archivo (magic bytes) contra JPEG/PNG/WEBP *antes* de llamar a
+  `imageSize()`, sin importar el mimetype que haya mandado el cliente.
+
+### Cantidad de piezas: siempre múltiplos de 12
+
+El jugador elige un nivel (Fácil 48 / Medio 96 / Difícil 192 piezas —
+`PIECE_LEVELS` en `frontend/src/utils/pieceLevels.js`, duplicado en
+`backend/src/pieceLevels.js`), nunca un número libre. En multiplayer el
+cliente manda el `id` del nivel, no la cantidad — el server la resuelve
+contra su propia copia de la tabla, mismo patrón que antes se usaba para
+resolver la foto contra el catálogo. `gridForPieceCount(count, aspect)`
+busca, entre los divisores de esa cantidad, el par filas x columnas cuyo
+aspect ratio más se acerca al de la foto (así la pieza queda lo más cuadrada
+posible sin importar si la foto es horizontal o vertical).
+
+El tablero mantiene siempre la misma área aproximada (la de la proporción
+original 856x600 de la primera foto de referencia usada al armar esto) pero
+adapta ancho/alto al aspect ratio de la foto subida (`boardDimsForAspect()`)
+para no estirarla — así una foto vertical no queda deformada en un tablero
+horizontal.
 
 ## Chat, música y reinicio (multiplayer)
 
@@ -86,6 +119,10 @@ sí tiene auto-deploy desde GitHub).
   resultado final de cada partida. Una tabla (`resultados`), un único INSERT al terminar.
   El backend usa la `service_role` key (bypassa RLS); si en algún momento el cliente
   necesita insertar directo en modo single player, ver la policy comentada en el schema.
+- **Fotos de multiplayer**: bucket público de Supabase Storage (`puzzle-photos`, mismo
+  proyecto que la tabla `resultados`), con `file_size_limit`/`allowed_mime_types`
+  configurados en el propio bucket como límite adicional (server-side, no solo en
+  `upload.js`). El backend sube con la `service_role` key.
 
 ## Decisiones de arquitectura (no reevaluar sin razón nueva)
 

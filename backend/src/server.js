@@ -4,6 +4,7 @@ import http from "http";
 import cors from "cors";
 import { Server } from "socket.io";
 import { registerSocketHandlers } from "./socketHandlers.js";
+import { uploadMiddleware, handleUpload, uploadErrorHandler } from "./upload.js";
 
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
@@ -13,6 +14,7 @@ const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGINS }));
 app.get("/health", (_req, res) => res.json({ ok: true }));
+app.post("/api/upload", uploadMiddleware, handleUpload, uploadErrorHandler);
 
 const server = http.createServer(app);
 const io = new Server(server, {

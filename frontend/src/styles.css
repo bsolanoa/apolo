@@ -112,38 +112,66 @@ body {
   object-fit: fill;
 }
 
-.image-picker {
+.photo-uploader {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.photo-uploader-preview {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #334155;
+}
+
+.photo-uploader-hint {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-align: center;
+  max-width: 240px;
+}
+
+.photo-uploader-error {
+  font-size: 0.75rem;
+  color: #f87171;
+  text-align: center;
+  max-width: 240px;
+}
+
+.piece-level-picker {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.image-picker-item {
-  padding: 0;
+.piece-level-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 2px solid #334155;
   background: #1e293b;
   cursor: pointer;
-  overflow: hidden;
-  width: 64px;
-  height: 64px;
 }
 
-.image-picker-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.image-picker-item.selected {
+.piece-level-item.selected {
   border-color: #60a5fa;
 }
 
-.image-picker-item:disabled {
+.piece-level-item:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+.piece-level-count {
+  font-size: 0.7rem;
+  color: #94a3b8;
 }
 
 .game-layout {

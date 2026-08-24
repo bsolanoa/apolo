@@ -6,9 +6,11 @@
 // superposición, como en un rompecabezas real.
 
 // El tablero mantiene siempre la misma área aproximada (la de la proporción
-// original 856x600, elegida para foto1.jpg) pero adapta ancho/alto al aspect
-// ratio de la foto elegida, para no estirarla — ver imageCatalog.js. La
-// grilla queda fija en 8x8 = 64 piezas para cualquier foto.
+// original 856x600, la de la primera foto de referencia usada al armar esto)
+// pero adapta ancho/alto al aspect ratio de la foto que suba el jugador,
+// para no estirarla. La grilla (filas x columnas) no es fija: se calcula con
+// gridForPieceCount() a partir del nivel elegido (ver utils/pieceLevels.js),
+// siempre en múltiplos de 12.
 const BOARD_AREA = 856 * 600;
 const DEFAULT_ASPECT = 856 / 600;
 export const SNAP_THRESHOLD = 22;

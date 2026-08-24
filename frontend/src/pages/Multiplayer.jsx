@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
-import ImagePicker from "../components/ImagePicker.jsx";
+import PhotoUploader from "../components/PhotoUploader.jsx";
+import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
 import { useSocket } from "../hooks/useSocket.js";
 import { formatTime } from "../utils/formatTime.js";
-import { DEFAULT_IMAGE } from "../imageCatalog.js";
+import { readImageDimensions, validateDimensions } from "../utils/photoValidation.js";
+import { uploadPhoto } from "../utils/uploadPhoto.js";
+import { DEFAULT_PIECE_LEVEL } from "../utils/pieceLevels.js";
 
 const MOVE_THROTTLE_MS = 40;
 
@@ -24,7 +27,8 @@ export default function Multiplayer() {
   const { socketRef, connected, socketId } = useSocket();
   const [name, setName] = useState("");
   const [joinRoomId, setJoinRoomId] = useState("");
-  const [selectedImageId, setSelectedImageId] = useState(DEFAULT_IMAGE.id);
+  const [pendingPhoto, setPendingPhoto] = useState(null); // { url, width, height }, ya subida al backend
+  const [pieceLevel, setPieceLevel] = useState(DEFAULT_PIECE_LEVEL.id);
   const [room, setRoom] = useState(null); // room state from server
   const [lockedPieces, setLockedPieces] = useState(new Map());
   const [elapsed, setElapsed] = useState(0);
@@ -101,11 +105,20 @@ export default function Multiplayer() {
     return () => clearInterval(interval);
   }, [room?.status, room?.startedAt, completedTime]);
 
-  // El picker de "elegir otra foto" (tras completar) arranca mostrando la
-  // foto que se está jugando ahora mismo.
+  // Si todavía no subiste ninguna foto (por ejemplo, te uniste a la sala en
+  // vez de crearla) usamos la que ya está jugándose como base para "jugar de
+  // nuevo" sin forzar a subir una si no se quiere cambiar. boardWidth/Height
+  // sirve como stand-in del width/height original: el aspect ratio es el
+  // mismo, y es lo único que necesita el server para repartir la grilla.
   useEffect(() => {
-    if (room?.imageId) setSelectedImageId(room.imageId);
-  }, [room?.imageId]);
+    if (!pendingPhoto && room?.puzzle) {
+      setPendingPhoto({
+        url: room.puzzle.imageUrl,
+        width: room.puzzle.boardWidth,
+        height: room.puzzle.boardHeight,
+      });
+    }
+  }, [room?.puzzle, pendingPhoto]);
 
   const contributions = useMemo(() => {
     if (!room || completedTime === null) return [];
@@ -122,13 +135,44 @@ export default function Multiplayer() {
     }));
   }, [room, completedTime]);
 
+  async function handleFile(file) {
+    const { width, height, url: localUrl } = await readImageDimensions(file);
+    const dimError = validateDimensions(width, height);
+    if (dimError) {
+      URL.revokeObjectURL(localUrl);
+      throw new Error(dimError);
+    }
+    try {
+      const uploaded = await uploadPhoto(file);
+      setPendingPhoto(uploaded);
+    } finally {
+      URL.revokeObjectURL(localUrl);
+    }
+  }
+
   function handleCreateRoom() {
-    socketRef.current?.emit("room:create", { name, imageId: selectedImageId, rows: 8, cols: 8 }, (res) => {
-      if (res?.ok) {
-        setRoom(res.room);
-        setLockedPieces(deriveLockedPieces(res.room.puzzle));
+    if (!pendingPhoto) {
+      alert("Subí una foto antes de crear la sala.");
+      return;
+    }
+    socketRef.current?.emit(
+      "room:create",
+      {
+        name,
+        imageUrl: pendingPhoto.url,
+        imageWidth: pendingPhoto.width,
+        imageHeight: pendingPhoto.height,
+        level: pieceLevel,
+      },
+      (res) => {
+        if (res?.ok) {
+          setRoom(res.room);
+          setLockedPieces(deriveLockedPieces(res.room.puzzle));
+        } else {
+          alert(`No se pudo crear la sala: ${res?.error}`);
+        }
       }
-    });
+    );
   }
 
   function handleJoinRoom() {
@@ -168,9 +212,22 @@ export default function Multiplayer() {
   }
 
   function handleRestartGame() {
-    socketRef.current?.emit("game:restart", { imageId: selectedImageId }, (res) => {
-      if (!res?.ok) alert(`No se pudo reiniciar: ${res?.error}`);
-    });
+    if (!pendingPhoto) {
+      alert("Subí una foto para la siguiente ronda.");
+      return;
+    }
+    socketRef.current?.emit(
+      "game:restart",
+      {
+        imageUrl: pendingPhoto.url,
+        imageWidth: pendingPhoto.width,
+        imageHeight: pendingPhoto.height,
+        level: pieceLevel,
+      },
+      (res) => {
+        if (!res?.ok) alert(`No se pudo reiniciar: ${res?.error}`);
+      }
+    );
   }
 
   if (!room) {
@@ -181,9 +238,10 @@ export default function Multiplayer() {
         <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
         <div>
           <p className="preview-label" style={{ textAlign: "center" }}>
-            Elegí la foto (la arma quien crea la sala)
+            Subí la foto (la arma quien crea la sala)
           </p>
-          <ImagePicker selectedId={selectedImageId} onSelect={setSelectedImageId} />
+          <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
+          <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
         </div>
         <div className="lobby-actions">
           <button onClick={handleCreateRoom}>Crear sala</button>
@@ -240,8 +298,9 @@ export default function Multiplayer() {
               </div>
             )}
             <div className="restart-controls">
-              <p className="preview-label">Elegí la foto para la siguiente ronda</p>
-              <ImagePicker selectedId={selectedImageId} onSelect={setSelectedImageId} />
+              <p className="preview-label">Subí otra foto para la siguiente ronda (o dejá la misma)</p>
+              <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
+              <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
               <button onClick={handleRestartGame}>Jugar de nuevo</button>
             </div>
           </div>

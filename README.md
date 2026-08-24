@@ -16,7 +16,10 @@ supabase/   schema.sql — tabla `resultados`
 ### 1. Supabase
 1. Crear un proyecto en supabase.com (free tier).
 2. Ejecutar `supabase/schema.sql` en el SQL editor.
-3. Copiar la URL del proyecto y la `service_role` key (para el backend) y la `anon` key
+3. Crear un bucket de Storage público llamado `puzzle-photos` (fotos que suben los
+   jugadores en multiplayer) — por API: `POST /storage/v1/bucket` con
+   `{"id":"puzzle-photos","name":"puzzle-photos","public":true,"file_size_limit":8388608,"allowed_mime_types":["image/jpeg","image/png","image/webp"]}`.
+4. Copiar la URL del proyecto y la `service_role` key (para el backend) y la `anon` key
    (para el frontend, solo si el modo single player va a guardar el resultado
    directo desde el cliente — ver la policy comentada en el schema).
 
@@ -38,28 +41,35 @@ npm run dev              # http://localhost:5173
 
 ## Flujo multiplayer (Socket.io)
 
-1. Jugador A emite `room:create` → el server genera un `roomId` y el estado inicial
-   del puzzle: piezas con recorte tipo jigsaw real (tabs/blancos que encastran entre
+1. Jugador A sube su foto por `POST /api/upload` (`multipart/form-data`, campo `photo`) →
+   el backend valida formato/peso/dimensiones sobre los bytes reales, la guarda en el
+   bucket `puzzle-photos` de Supabase Storage y devuelve `{ url, width, height }`.
+2. Jugador A emite `room:create` con esa `imageUrl`/`imageWidth`/`imageHeight` y el
+   `level` elegido (`facil`/`medio`/`dificil`, siempre múltiplos de 12 piezas — ver
+   `pieceLevels.js`) → el server valida la URL contra su propio bucket, resuelve la
+   cantidad de piezas contra su copia de `PIECE_LEVELS` y genera el estado inicial del
+   puzzle: piezas con recorte tipo jigsaw real (tabs/blancos que encastran entre
    vecinas, ver `puzzleUtils.js`) dispersas en las 4 franjas alrededor del tablero
    (arriba/abajo/izquierda/derecha), permitiendo que se superpongan entre sí — como
    en un rompecabezas real, para "destapar" una pieza hay que mover la que está encima.
-2. Jugador A comparte el código de sala. Jugador B emite `room:join` con ese código.
-3. Al completarse los 2 jugadores, el server marca la sala `playing` y arranca el timer
+3. Jugador A comparte el código de sala. Jugador B emite `room:join` con ese código.
+4. Al completarse los 2 jugadores, el server marca la sala `playing` y arranca el timer
    (`startedAt`).
-4. Al tomar una pieza: `piece:pick` → si está libre, el server la bloquea (`lockedBy`)
+5. Al tomar una pieza: `piece:pick` → si está libre, el server la bloquea (`lockedBy`)
    y difunde `piece:locked` a ambos jugadores (la pieza se ve deshabilitada/atenuada
    para el otro).
-5. Mientras se arrastra: `piece:move` (throttled ~40ms en el cliente) → el server
+6. Mientras se arrastra: `piece:move` (throttled ~40ms en el cliente) → el server
    reenvía `piece:moved` al otro jugador para que vea el arrastre en vivo.
-6. Al soltar: `piece:release` → el server evalúa si encajó (umbral de distancia a la
+7. Al soltar: `piece:release` → el server evalúa si encajó (umbral de distancia a la
    posición correcta), libera el lock y difunde `piece:updated`.
-7. Cuando todas las piezas están colocadas, el server calcula el tiempo total,
+8. Cuando todas las piezas están colocadas, el server calcula el tiempo total,
    emite `game:completed` y hace el `INSERT` en `resultados` (usa la service_role key,
    así que no requiere RLS abierto).
 
-En single player todo corre en el cliente (`utils/puzzleGenerator.js`, misma lógica
-de grilla que el backend) y el resultado se guarda con un INSERT directo desde el
-frontend usando la anon key.
+En single player todo corre en el cliente: la foto elegida se usa directo como object
+URL local (no pasa por el backend) y la grilla sale de `utils/pieceLevels.js` según el
+nivel elegido (misma lógica que el backend). El resultado se guarda con un INSERT
+directo desde el frontend usando la anon key.
 
 ## Despliegue
 

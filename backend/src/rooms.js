@@ -8,13 +8,12 @@ function makeRoomId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export function createRoom({ imageId, imageUrl, imageWidth, imageHeight, rows, cols }) {
+export function createRoom({ imageUrl, imageWidth, imageHeight, rows, cols }) {
   let roomId = makeRoomId();
   while (rooms.has(roomId)) roomId = makeRoomId();
 
   const room = {
     id: roomId,
-    imageId,
     players: [], // { socketId, name }
     puzzle: generatePuzzle({ rows, cols, imageUrl, imageWidth, imageHeight }),
     status: "waiting", // waiting (falta un jugador) | ready (2 jugadores, esperando "Comenzar") | playing | finished
@@ -67,12 +66,11 @@ export function startGame(roomId) {
 // Arma un puzzle nuevo (misma foto o una distinta) reutilizando la sala y
 // los jugadores ya presentes — así se puede seguir jugando sin recrear la
 // sala. Solo tiene sentido llamarla con la partida terminada.
-export function restartGame({ roomId, imageId, imageUrl, imageWidth, imageHeight, rows, cols }) {
+export function restartGame({ roomId, imageUrl, imageWidth, imageHeight, rows, cols }) {
   const room = getRoom(roomId);
   if (!room) return { error: "ROOM_NOT_FOUND" };
   if (room.status !== "finished") return { error: "INVALID_STATE" };
 
-  room.imageId = imageId;
   room.puzzle = generatePuzzle({ rows, cols, imageUrl, imageWidth, imageHeight });
   room.status = room.players.length === 2 ? "ready" : "waiting";
   room.startedAt = null;
@@ -121,7 +119,6 @@ export function isPuzzleComplete(room) {
 export function publicRoomState(room) {
   return {
     id: room.id,
-    imageId: room.imageId,
     players: room.players.map((p) => ({ socketId: p.socketId, name: p.name })),
     puzzle: room.puzzle,
     status: room.status,
