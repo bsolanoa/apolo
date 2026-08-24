@@ -7,11 +7,11 @@ export default function Home() {
       <div className="mode-cards">
         <Link className="mode-card" to="/single">
           <h2>Single Player</h2>
-          <p>Armá el rompecabezas solo y medí tu tiempo.</p>
+          <p>Arma el rompecabezas solo y mide tu tiempo.</p>
         </Link>
         <Link className="mode-card" to="/multiplayer">
           <h2>Multiplayer (2 jugadores)</h2>
-          <p>Creá o unite a una sala y armen el rompecabezas juntos en tiempo real.</p>
+          <p>Crea o únete a una sala y armen el rompecabezas juntos en tiempo real.</p>
         </Link>
       </div>
     </div>

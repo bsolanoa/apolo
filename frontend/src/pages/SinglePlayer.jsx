@@ -108,7 +108,7 @@ export default function SinglePlayer() {
         {puzzle && (
           <PuzzlePreview imageUrl={puzzle.imageUrl} boardWidth={puzzle.boardWidth} boardHeight={puzzle.boardHeight} />
         )}
-        {!puzzle && <p className="preview-label">Subí una foto para poder armar el rompecabezas.</p>}
+        {!puzzle && <p className="preview-label">Sube una foto para poder armar el rompecabezas.</p>}
         {puzzle && !started && <button onClick={handleStart}>Comenzar</button>}
         {started && <div className="timer">⏱ {formatTime(elapsed)}</div>}
         {completed && <div className="banner success">¡Completado en {formatTime(elapsed)}!</div>}

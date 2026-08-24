@@ -26,7 +26,7 @@ export default function ChatPanel({ messages, mySocketId, onSend }) {
       </div>
       <form className="chat-input-row" onSubmit={handleSubmit}>
         <input
-          placeholder="Escribí un mensaje..."
+          placeholder="Escribe un mensaje..."
           value={text}
           maxLength={300}
           onChange={(e) => setText(e.target.value)}

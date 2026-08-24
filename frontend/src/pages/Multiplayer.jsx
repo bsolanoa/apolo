@@ -152,7 +152,7 @@ export default function Multiplayer() {
 
   function handleCreateRoom() {
     if (!pendingPhoto) {
-      alert("Subí una foto antes de crear la sala.");
+      alert("Sube una foto antes de crear la sala.");
       return;
     }
     socketRef.current?.emit(
@@ -213,7 +213,7 @@ export default function Multiplayer() {
 
   function handleRestartGame() {
     if (!pendingPhoto) {
-      alert("Subí una foto para la siguiente ronda.");
+      alert("Sube una foto para la siguiente ronda.");
       return;
     }
     socketRef.current?.emit(
@@ -238,7 +238,7 @@ export default function Multiplayer() {
         <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
         <div>
           <p className="preview-label" style={{ textAlign: "center" }}>
-            Subí la foto (la arma quien crea la sala)
+            Sube la foto (la arma quien crea la sala)
           </p>
           <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
           <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
@@ -298,7 +298,7 @@ export default function Multiplayer() {
               </div>
             )}
             <div className="restart-controls">
-              <p className="preview-label">Subí otra foto para la siguiente ronda (o dejá la misma)</p>
+              <p className="preview-label">Sube otra foto para la siguiente ronda (o deja la misma)</p>
               <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
               <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
               <button onClick={handleRestartGame}>Jugar de nuevo</button>
