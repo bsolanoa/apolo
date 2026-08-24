@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 export default function Home() {
   return (
     <div className="page home">
-      <h1>Jupiter Puzzle</h1>
+      <img src="/logo.png" alt="Jupiter Puzzle" className="home-logo" />
       <div className="mode-cards">
         <Link className="mode-card" to="/single">
           <h2>Single Player</h2>

@@ -8,7 +8,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <header className="topbar">
-        <Link to="/" className="brand">🧩 Jupiter Puzzle</Link>
+        <Link to="/" className="brand">
+          <img src="/logo-icon.png" alt="" className="brand-icon" />
+          Jupiter Puzzle
+        </Link>
         <MusicPlayer />
       </header>
       <Routes>
