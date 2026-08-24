@@ -8,7 +8,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <header className="topbar">
-        <Link to="/" className="brand">🧩 Preciosa Puzzle</Link>
+        <Link to="/" className="brand">🧩 Apolo</Link>
         <MusicPlayer />
       </header>
       <Routes>

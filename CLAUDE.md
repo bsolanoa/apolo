@@ -1,4 +1,8 @@
-# Preciosa Puzzle (Rompecabezas Online)
+# Apolo (Rompecabezas Online)
+
+> Instancia independiente de Preciosa Puzzle (repo `piezas`): mismo juego y misma
+> lógica, pero con repo, frontend, backend y base de datos propios (sin compartir
+> infraestructura ni datos con `piezas`).
 
 Juego de rompecabezas jugable en modo **single player** o **multiplayer (2 jugadores máximo)**.
 En multiplayer, ambos jugadores ven el mismo tablero y mueven piezas en tiempo real; si un
@@ -62,11 +66,13 @@ el material de referencia original (fotos sin optimizar).
 
 ## Stack (elegido para que todo corra en tiers 100% gratuitos)
 
-Deploy actual: frontend en Vercel (https://preciosa-puzzle.vercel.app), backend en Render
-(https://piezas-w5et.onrender.com), repo en https://github.com/bsolanoa/piezas. El
-frontend en Vercel se deployea por CLI (`vercel --prod` desde `frontend/`), no está
-conectado por Git — un `git push` a `main` **no** lo actualiza solo (a diferencia del
-backend en Render, que sí tiene auto-deploy desde GitHub).
+Deploy actual: frontend en Vercel (URL_FRONTEND_PENDIENTE), backend en Render
+(URL_BACKEND_PENDIENTE), repo en https://github.com/bsolanoa/apolo, base de datos en
+un proyecto Supabase propio (ref `fjsoffjgrwneoopauqel`, región `sa-east-1`) — separado
+del proyecto Supabase de `piezas`. El frontend en Vercel se deployea por CLI
+(`vercel --prod` desde `frontend/`), no está conectado por Git — un `git push` a `main`
+**no** lo actualiza solo (a diferencia del backend en Render, que sí tiene auto-deploy
+desde GitHub).
 
 - **Frontend** (`frontend/`): React + Vite + Konva/react-konva (canvas para renderizar y
   arrastrar piezas) + socket.io-client.

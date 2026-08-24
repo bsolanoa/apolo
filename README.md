@@ -1,4 +1,4 @@
-# Preciosa Puzzle
+# Apolo
 
 Rompecabezas jugable en single player o multiplayer (2 jugadores), con sincronización
 en tiempo real vía Socket.io y persistencia de resultados en Supabase.
