@@ -6,6 +6,7 @@ import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
 import { useSocket } from "../hooks/useSocket.js";
 import { formatTime } from "../utils/formatTime.js";
+import { playNotificationSound } from "../utils/notificationSound.js";
 import { readImageDimensions, validateDimensions } from "../utils/photoValidation.js";
 import { uploadPhoto } from "../utils/uploadPhoto.js";
 import { DEFAULT_PIECE_LEVEL } from "../utils/pieceLevels.js";
@@ -35,6 +36,13 @@ export default function Multiplayer() {
   const [completedTime, setCompletedTime] = useState(null);
   const [messages, setMessages] = useState([]);
   const lastMoveEmitRef = useRef(0);
+  // El handler de chat se registra una sola vez (efecto con [socketRef] como
+  // dependencia), así que no puede leer `socketId` directo del render —
+  // quedaría pegado al valor (probablemente null) que tenía al montar. El
+  // ref se mantiene al día en cada render sin tener que re-registrar el
+  // listener.
+  const mySocketIdRef = useRef(socketId);
+  mySocketIdRef.current = socketId;
 
   useEffect(() => {
     const socket = socketRef.current;
@@ -76,6 +84,8 @@ export default function Multiplayer() {
 
     function onChatMessage(message) {
       setMessages((prev) => [...prev, message]);
+      // No suena por tu propio mensaje, solo por los que manda el resto.
+      if (message.socketId !== mySocketIdRef.current) playNotificationSound();
     }
 
     socket.on("room:state", onRoomState);
@@ -134,6 +144,14 @@ export default function Multiplayer() {
       count: counts.get(p.socketId) || 0,
     }));
   }, [room, completedTime]);
+
+  // Jugador (o jugadores, si hay empate) que más piezas aportó. Si todos
+  // aportaron lo mismo no hay "ganador" que destacar.
+  const contributionLeaders = useMemo(() => {
+    if (contributions.length === 0) return [];
+    const max = Math.max(...contributions.map((c) => c.count));
+    return contributions.filter((c) => c.count === max);
+  }, [contributions]);
 
   async function handleFile(file) {
     const { width, height, url: localUrl } = await readImageDimensions(file);
@@ -268,31 +286,28 @@ export default function Multiplayer() {
           boardWidth={room.puzzle.boardWidth}
           boardHeight={room.puzzle.boardHeight}
         />
-        {room.status === "waiting" && <div className="banner">Esperando al segundo jugador...</div>}
+        {room.status === "waiting" && (
+          <div className="banner">Esperando jugadores... (hace falta al menos 1 más)</div>
+        )}
         {room.status === "ready" && (
           <div className="banner">
-            Los 2 jugadores están listos.
+            {room.players.length}/4 jugadores listos. Puedes esperar a más gente o comenzar ya.
             <button onClick={handleStartGame}>Comenzar</button>
           </div>
         )}
         {completedTime !== null && (
           <div className="banner success completion-banner">
             <div>¡Completado en {formatTime(completedTime)}!</div>
-            {contributions.length === 2 && (
+            {contributions.length > 0 && (
               <div className="contributions">
-                <span>
-                  {contributions[0].name}: {contributions[0].count} piezas
-                </span>
-                <span>
-                  {contributions[1].name}: {contributions[1].count} piezas
-                </span>
-                {contributions[0].count !== contributions[1].count && (
+                {contributions.map((c) => (
+                  <span key={c.socketId}>
+                    {c.name}: {c.count} piezas
+                  </span>
+                ))}
+                {contributionLeaders.length > 0 && contributionLeaders.length < contributions.length && (
                   <div className="contribution-winner">
-                    🏆{" "}
-                    {contributions[0].count > contributions[1].count
-                      ? contributions[0].name
-                      : contributions[1].name}{" "}
-                    aportó más piezas
+                    🏆 {contributionLeaders.map((c) => c.name).join(" y ")} aportó más piezas
                   </div>
                 )}
               </div>

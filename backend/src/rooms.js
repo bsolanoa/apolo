@@ -16,7 +16,7 @@ export function createRoom({ imageUrl, imageWidth, imageHeight, rows, cols }) {
     id: roomId,
     players: [], // { socketId, name }
     puzzle: generatePuzzle({ rows, cols, imageUrl, imageWidth, imageHeight }),
-    status: "waiting", // waiting (falta un jugador) | ready (2 jugadores, esperando "Comenzar") | playing | finished
+    status: "waiting", // waiting (falta un jugador) | ready (2-4 jugadores, esperando "Comenzar") | playing | finished
     startedAt: null,
     finishedAt: null,
   };
@@ -32,30 +32,35 @@ export function deleteRoom(roomId) {
   rooms.delete(roomId);
 }
 
+const MAX_PLAYERS = 4;
+const MIN_PLAYERS_TO_START = 2;
+
 export function addPlayerToRoom(roomId, socketId, name) {
   const room = getRoom(roomId);
   if (!room) return { error: "ROOM_NOT_FOUND" };
-  if (room.players.length >= 2) return { error: "ROOM_FULL" };
+  if (room.players.length >= MAX_PLAYERS) return { error: "ROOM_FULL" };
   if (room.players.some((p) => p.socketId === socketId)) {
     return { room };
   }
 
   room.players.push({ socketId, name: name || `Jugador ${room.players.length + 1}` });
 
-  // Con los 2 jugadores presentes la sala queda "lista": el juego no arranca
-  // solo, hace falta que alguno presione "Comenzar" (game:start).
-  if (room.players.length === 2 && room.status === "waiting") {
+  // Con el mínimo de jugadores presentes la sala queda "lista": el juego no
+  // arranca solo, hace falta que alguno presione "Comenzar" (game:start).
+  // No hace falta llegar al máximo de 4 — el que crea la sala decide si
+  // espera más gente o arranca ya.
+  if (room.players.length >= MIN_PLAYERS_TO_START && room.status === "waiting") {
     room.status = "ready";
   }
 
   return { room };
 }
 
-// Arranca la partida: solo válido si ya están los 2 jugadores presentes.
+// Arranca la partida: solo válido si ya está el mínimo de jugadores presente.
 export function startGame(roomId) {
   const room = getRoom(roomId);
   if (!room) return { error: "ROOM_NOT_FOUND" };
-  if (room.players.length < 2) return { error: "NOT_ENOUGH_PLAYERS" };
+  if (room.players.length < MIN_PLAYERS_TO_START) return { error: "NOT_ENOUGH_PLAYERS" };
   if (room.status !== "ready") return { error: "INVALID_STATE" };
 
   room.status = "playing";
@@ -72,7 +77,7 @@ export function restartGame({ roomId, imageUrl, imageWidth, imageHeight, rows, c
   if (room.status !== "finished") return { error: "INVALID_STATE" };
 
   room.puzzle = generatePuzzle({ rows, cols, imageUrl, imageWidth, imageHeight });
-  room.status = room.players.length === 2 ? "ready" : "waiting";
+  room.status = room.players.length >= MIN_PLAYERS_TO_START ? "ready" : "waiting";
   room.startedAt = null;
   room.finishedAt = null;
 
@@ -98,11 +103,12 @@ export function removePlayerFromRoom(roomId, socketId) {
     return null;
   }
 
-  // Si se va alguien antes de terminar, vuelve a faltar un jugador — la
-  // partida no puede seguir "lista" ni "jugando" con uno solo.
-  if (room.status === "ready" || room.status === "playing") {
+  // Si la partida ya está en curso, sigue con los jugadores que queden (aunque
+  // sea uno solo) — no tiene sentido cortarla a mitad de camino. Pero si
+  // todavía no arrancó ("ready") y cae por debajo del mínimo, vuelve a faltar
+  // gente para poder arrancar.
+  if (room.status === "ready" && room.players.length < MIN_PLAYERS_TO_START) {
     room.status = "waiting";
-    room.startedAt = null;
   }
 
   return room;

@@ -8,16 +8,20 @@
 > lógica, pero con repo, frontend, backend y base de datos propios (sin compartir
 > infraestructura ni datos con `piezas`).
 
-Juego de rompecabezas jugable en modo **single player** o **multiplayer (2 jugadores máximo)**.
-En multiplayer, ambos jugadores ven el mismo tablero y mueven piezas en tiempo real; si un
-jugador toma una pieza, queda bloqueada para el otro hasta que la suelte. Al completar el
-rompecabezas (en cualquiera de los dos modos) se guarda el tiempo que tomó armarlo.
+Juego de rompecabezas jugable en modo **single player** o **multiplayer (2 a 4 jugadores)**.
+En multiplayer, todos los jugadores de la sala ven el mismo tablero y mueven piezas en tiempo
+real; si un jugador toma una pieza, queda bloqueada para el resto hasta que la suelte. Al
+completar el rompecabezas (en cualquiera de los dos modos) se guarda el tiempo que tomó armarlo.
 
 El juego **no arranca solo**: hace falta presionar "Comenzar" explícitamente (en ambos modos).
-En multiplayer, ese botón ni siquiera aparece hasta que los 2 jugadores están presentes
-(sala en estado `ready`); el servidor rechaza `piece:pick` si la sala no está en `playing`,
-no es solo una validación visual del cliente. Ver `rooms.js` (estados `waiting → ready →
-playing → finished`) y el evento `game:start` en `socketHandlers.js`.
+En multiplayer, ese botón no aparece hasta que hay al menos 2 jugadores presentes (sala en
+estado `ready`) — no hace falta esperar a los 4, el que crea la sala decide si arranca ya o
+espera más gente; el servidor rechaza `piece:pick` si la sala no está en `playing`, no es solo
+una validación visual del cliente. Si la partida ya está en curso y algún jugador se
+desconecta, sigue con los que queden (aunque sea uno solo) — la sala solo vuelve a `waiting`
+si cae por debajo de 2 jugadores antes de haber arrancado. Ver `rooms.js` (constantes
+`MAX_PLAYERS`/`MIN_PLAYERS_TO_START`, estados `waiting → ready → playing → finished`) y el
+evento `game:start` en `socketHandlers.js`.
 
 No hay autenticación de usuarios, leaderboards ni perfiles — fuera de alcance por ahora.
 
@@ -86,20 +90,24 @@ horizontal.
 
 ## Chat, música y reinicio (multiplayer)
 
-- Chat de texto simple entre los 2 jugadores (`chat:message`): solo se reenvía en vivo,
-  no se persiste ni tiene historial — se pierde al refrescar, igual que el resto del
-  estado de la sala.
+- Chat de texto simple entre los jugadores de la sala (`chat:message`): solo se reenvía en
+  vivo, no se persiste ni tiene historial — se pierde al refrescar, igual que el resto del
+  estado de la sala. Cada mensaje entrante de otro jugador dispara un beep corto sintetizado
+  con Web Audio API (`frontend/src/utils/notificationSound.js`, oscilador + envolvente de
+  ganancia) — no es un archivo de audio, así se evita sumar otro asset con tema de licencia.
+  No suena por tu propio mensaje.
 - La música de fondo es enteramente client-side (no hay audio en el backend): catálogo en
   `frontend/src/musicCatalog.js`, archivos en `frontend/public/music/`. Reproductor simple
   (anterior/reproducir/siguiente) en el topbar (`MusicPlayer.jsx`). El `<audio>` se
   remonta con `key={trackId}` en cada cambio de pista — cambiar `src` en el mismo elemento
   puede interrumpir un `play()` en curso del track anterior y dejar la música muda hasta
   el próximo refresh, por eso el remount en vez de mutar `src` in place.
-- Al terminar una partida multiplayer, cualquiera de los 2 jugadores puede reiniciar en la
+- Al terminar una partida multiplayer, cualquiera de los jugadores puede reiniciar en la
   misma sala (`game:restart`), reusando la foto o eligiendo otra — no hace falta crear una
   sala nueva (reusa `room.players`, vuelve a estado `ready`). El server trackea qué
   jugador encajó cada pieza (`piece.placedBy`) para mostrar cuántas piezas aportó cada uno
-  al completar — es un dato efímero de esa partida, no un leaderboard persistente.
+  al completar (con empate entre varios se muestran todos como ganadores) — es un dato
+  efímero de esa partida, no un leaderboard persistente.
 
 ## Stack (elegido para que todo corra en tiers 100% gratuitos)
 
@@ -117,8 +125,8 @@ sí tiene auto-deploy desde GitHub).
   arrastrar piezas) + socket.io-client.
   - Hosting: Vercel (elegido sobre Hostinger — deploy más simple, sin subir `dist/` a mano).
 - **Backend realtime** (`backend/`): Node.js + Express + Socket.io. Mantiene el estado de
-  cada sala (2 jugadores) **en memoria** — posición de piezas y bloqueo de la pieza tomada.
-  No usar la DB para el estado en curso, solo para el resultado final.
+  cada sala (2 a 4 jugadores) **en memoria** — posición de piezas y bloqueo de la pieza
+  tomada. No usar la DB para el estado en curso, solo para el resultado final.
   - Hosting: Render.com (free web service). Se "duerme" tras ~15 min sin uso; primera
     conexión de una partida puede tardar 20-30s en despertar — esperado, no es un bug.
   - `CLIENT_ORIGIN` (env var, usada tanto por el CORS de Express como por el de

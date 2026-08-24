@@ -75,8 +75,9 @@ export function registerSocketHandlers(io) {
       io.to(roomId).emit("room:state", publicRoomState(result.room));
     });
 
-    // Cualquiera de los 2 jugadores puede arrancar la partida, pero solo
-    // una vez que ambos están presentes (sala en estado "ready").
+    // Cualquiera de los jugadores presentes puede arrancar la partida, una
+    // vez que hay al menos 2 (sala en estado "ready") — no hace falta
+    // esperar al máximo de 4.
     socket.on("game:start", (_payload, cb) => {
       const result = startGame(socket.data.roomId);
       if (result.error) {
@@ -88,7 +89,7 @@ export function registerSocketHandlers(io) {
       cb?.({ ok: true });
     });
 
-    // Un jugador toma una pieza -> se bloquea para el otro jugador.
+    // Un jugador toma una pieza -> se bloquea para el resto de jugadores.
     socket.on("piece:pick", ({ pieceId } = {}) => {
       const room = getRoom(socket.data.roomId);
       if (!room || room.status !== "playing") return;
@@ -178,7 +179,7 @@ export function registerSocketHandlers(io) {
       cb?.({ ok: true });
     });
 
-    // Chat simple entre los 2 jugadores de la sala: solo se reenvía en vivo,
+    // Chat simple entre los jugadores de la sala: solo se reenvía en vivo,
     // no se persiste ni se guarda historial (se pierde al refrescar, igual
     // que el resto del estado de la sala).
     socket.on("chat:message", ({ text } = {}) => {
@@ -214,11 +215,9 @@ async function finishGame(io, room) {
 
   io.to(room.id).emit("game:completed", { tiempoSegundos });
 
-  const [jugador1, jugador2] = room.players.map((p) => p.name);
   await saveResult({
     partidaId: room.id,
-    jugador1,
-    jugador2,
+    jugadores: room.players.map((p) => p.name),
     tiempoSegundos,
   });
 }
