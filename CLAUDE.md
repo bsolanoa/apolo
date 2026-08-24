@@ -103,7 +103,9 @@ horizontal.
 
 ## Stack (elegido para que todo corra en tiers 100% gratuitos)
 
-Deploy actual: frontend en Vercel (https://apolo-beta.vercel.app), backend en Render
+Deploy actual: frontend en Vercel (https://apolo-beta.vercel.app, también con el
+dominio propio https://games.bstech.top apuntando ahí vía registro A a la IP de
+Vercel 76.76.21.21 — DNS gestionado en Hostinger), backend en Render
 (https://apolo-9kjq.onrender.com), repo en https://github.com/bsolanoa/apolo, base de
 datos en un proyecto Supabase propio (ref `fjsoffjgrwneoopauqel`, región `sa-east-1`)
 — totalmente separado del proyecto Supabase de `piezas`. El frontend en Vercel se
@@ -119,6 +121,12 @@ sí tiene auto-deploy desde GitHub).
   No usar la DB para el estado en curso, solo para el resultado final.
   - Hosting: Render.com (free web service). Se "duerme" tras ~15 min sin uso; primera
     conexión de una partida puede tardar 20-30s en despertar — esperado, no es un bug.
+  - `CLIENT_ORIGIN` (env var, usada tanto por el CORS de Express como por el de
+    Socket.io) debe listar **todos** los dominios desde donde se sirve el frontend,
+    separados por coma — hoy `https://apolo-beta.vercel.app,https://games.bstech.top`.
+    Agregar un dominio nuevo en Vercel sin sumarlo acá rompe silenciosamente
+    `POST /api/upload` (el fetch falla con "Failed to fetch", sin más detalle) y la
+    conexión de Socket.io desde ese dominio.
 - **Persistencia** (`supabase/schema.sql`): Supabase (Postgres, free tier), solo para el
   resultado final de cada partida. Una tabla (`resultados`), un único INSERT al terminar.
   El backend usa la `service_role` key (bypassa RLS); si en algún momento el cliente
