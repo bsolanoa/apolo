@@ -29,15 +29,48 @@ Las piezas se dispersan en las 4 franjas alrededor del tablero (arriba/abajo/izq
 llegar a una pieza tapada hay que mover primero la que está encima. El z-order de piezas
 superpuestas es solo local a cada cliente (no sincronizado entre jugadores).
 
-Imagen y tamaño de grilla por defecto: `frontend/public/foto1.jpg` (foto provista por el
-usuario, optimizada de 8.6MB a ~320KB), grilla 8x6 = 48 piezas, tablero 856x600 (calzado con
-el aspect ratio de la foto). Ver `sources/` para el material de referencia original.
+## Fotos y tamaño de grilla
+
+Catálogo de 4 fotos para elegir (`frontend/src/imageCatalog.js`, duplicado en
+`backend/src/imageCatalog.js` porque el server no sirve `frontend/public/` y necesita
+igual el width/height de cada una — mismo patrón de duplicación que puzzleUtils.js /
+puzzleGenerator.js). Grilla fija en **8x8 = 64 piezas** para cualquier foto. El tablero
+mantiene siempre la misma área aproximada (la de la proporción original 856x600, pensada
+para `foto1.jpg`) pero adapta ancho/alto al aspect ratio de la foto elegida
+(`boardDimsForAspect()`) para no estirarla — así una foto vertical no queda deformada en
+un tablero horizontal. En multiplayer el cliente solo manda un `imageId`; el server
+resuelve src/width/height contra su propio catálogo, nunca contra lo que mande el cliente
+— la fuente de verdad del tamaño del tablero es siempre el backend. Ver `sources/` para
+el material de referencia original (fotos sin optimizar).
+
+## Chat, música y reinicio (multiplayer)
+
+- Chat de texto simple entre los 2 jugadores (`chat:message`): solo se reenvía en vivo,
+  no se persiste ni tiene historial — se pierde al refrescar, igual que el resto del
+  estado de la sala.
+- La música de fondo es enteramente client-side (no hay audio en el backend): catálogo en
+  `frontend/src/musicCatalog.js`, archivos en `frontend/public/music/`. Reproductor simple
+  (anterior/reproducir/siguiente) en el topbar (`MusicPlayer.jsx`). El `<audio>` se
+  remonta con `key={trackId}` en cada cambio de pista — cambiar `src` en el mismo elemento
+  puede interrumpir un `play()` en curso del track anterior y dejar la música muda hasta
+  el próximo refresh, por eso el remount en vez de mutar `src` in place.
+- Al terminar una partida multiplayer, cualquiera de los 2 jugadores puede reiniciar en la
+  misma sala (`game:restart`), reusando la foto o eligiendo otra — no hace falta crear una
+  sala nueva (reusa `room.players`, vuelve a estado `ready`). El server trackea qué
+  jugador encajó cada pieza (`piece.placedBy`) para mostrar cuántas piezas aportó cada uno
+  al completar — es un dato efímero de esa partida, no un leaderboard persistente.
 
 ## Stack (elegido para que todo corra en tiers 100% gratuitos)
 
+Deploy actual: frontend en Vercel (https://preciosa-puzzle.vercel.app), backend en Render
+(https://piezas-w5et.onrender.com), repo en https://github.com/bsolanoa/piezas. El
+frontend en Vercel se deployea por CLI (`vercel --prod` desde `frontend/`), no está
+conectado por Git — un `git push` a `main` **no** lo actualiza solo (a diferencia del
+backend en Render, que sí tiene auto-deploy desde GitHub).
+
 - **Frontend** (`frontend/`): React + Vite + Konva/react-konva (canvas para renderizar y
   arrastrar piezas) + socket.io-client.
-  - Hosting: Hostinger (hosting compartido, sin VPS, solo sirve el build estático) o Vercel.
+  - Hosting: Vercel (elegido sobre Hostinger — deploy más simple, sin subir `dist/` a mano).
 - **Backend realtime** (`backend/`): Node.js + Express + Socket.io. Mantiene el estado de
   cada sala (2 jugadores) **en memoria** — posición de piezas y bloqueo de la pieza tomada.
   No usar la DB para el estado en curso, solo para el resultado final.
