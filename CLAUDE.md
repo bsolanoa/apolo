@@ -1,5 +1,9 @@
-# Apolo (Rompecabezas Online)
+# Jupiter Puzzle (Rompecabezas Online)
 
+> Nombre visible de la app (título, topbar, home). El repo, los servicios de
+> Vercel/Render y el proyecto de Supabase siguen llamándose "apolo" — no se
+> renombró la infraestructura, solo el branding que ve el jugador.
+>
 > Instancia independiente de Preciosa Puzzle (repo `piezas`): mismo juego y misma
 > lógica, pero con repo, frontend, backend y base de datos propios (sin compartir
 > infraestructura ni datos con `piezas`).
