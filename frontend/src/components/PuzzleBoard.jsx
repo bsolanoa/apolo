@@ -69,6 +69,8 @@ export default function PuzzleBoard({
                 boardOffsetY={puzzle.boardOffsetY}
                 boardWidth={puzzle.boardWidth}
                 boardHeight={puzzle.boardHeight}
+                stageWidth={puzzle.stageWidth}
+                stageHeight={puzzle.stageHeight}
                 draggable={interactive}
                 isMine={Boolean(lockedBy) && lockedBy === mySocketId}
                 isLockedByOther={Boolean(lockedBy) && lockedBy !== mySocketId}

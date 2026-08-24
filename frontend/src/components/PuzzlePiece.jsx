@@ -18,6 +18,8 @@ export default function PuzzlePiece({
   boardOffsetY,
   boardWidth,
   boardHeight,
+  stageWidth,
+  stageHeight,
   isLockedByOther,
   isMine,
   draggable,
@@ -27,6 +29,26 @@ export default function PuzzlePiece({
 }) {
   const shapeRef = useRef(null);
   const isDraggingRef = useRef(false);
+
+  // Sin este límite, un arrastre rápido puede soltar la pieza más allá del
+  // lienzo (el Stage de Konva no lo impide solo): queda fuera de los píxeles
+  // dibujados, invisible e inalcanzable con el mouse para siempre. `pos` acá
+  // es el offset interno del Shape (piece.x - piece.correctX, ver el
+  // useLayoutEffect de abajo), no la posición absoluta — por eso el margen
+  // se calcula relativo a piece.correctX/Y. El margen extra (tabMargin)
+  // deja lugar a que los "tabs" que sobresalen del rectángulo nominal de la
+  // pieza no se corten contra el borde.
+  function dragBoundFunc(pos) {
+    const tabMargin = Math.max(piece.width, piece.height) * 0.4;
+    const minX = -piece.correctX - tabMargin;
+    const maxX = stageWidth - piece.width - piece.correctX + tabMargin;
+    const minY = -piece.correctY - tabMargin;
+    const maxY = stageHeight - piece.height - piece.correctY + tabMargin;
+    return {
+      x: Math.min(Math.max(pos.x, minX), maxX),
+      y: Math.min(Math.max(pos.y, minY), maxY),
+    };
+  }
 
   useLayoutEffect(() => {
     if (isDraggingRef.current) return;
@@ -78,6 +100,7 @@ export default function PuzzlePiece({
       // (por una reconexión, por ejemplo) recalcula isLockedByOther/placed
       // con un valor transitoriamente erróneo.
       draggable={isDraggingRef.current || (draggable && !isLockedByOther && !piece.placed)}
+      dragBoundFunc={dragBoundFunc}
       onDragStart={() => {
         isDraggingRef.current = true;
         onDragStart?.(piece.id);
