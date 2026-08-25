@@ -10,7 +10,7 @@ export default function Home() {
           <p>Arma el rompecabezas solo y mide tu tiempo.</p>
         </Link>
         <Link className="mode-card" to="/multiplayer">
-          <h2>Multiplayer (2 jugadores)</h2>
+          <h2>Multiplayer (2 a 4 jugadores)</h2>
           <p>Crea o únete a una sala y armen el rompecabezas juntos en tiempo real.</p>
         </Link>
       </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// Chat simple entre los 2 jugadores de la sala. No persiste historial (se
+// Chat simple entre los jugadores de la sala. No persiste historial (se
 // pierde al refrescar, igual que el resto del estado de la partida).
 export default function ChatPanel({ messages, mySocketId, onSend }) {
   const [text, setText] = useState("");
