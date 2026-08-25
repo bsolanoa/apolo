@@ -6,7 +6,7 @@ import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
 import { generatePuzzle, isNearCorrectPosition } from "../utils/puzzleGenerator.js";
 import { formatTime } from "../utils/formatTime.js";
 import { saveSinglePlayerResult } from "../supabaseClient.js";
-import { readImageDimensions, validateDimensions } from "../utils/photoValidation.js";
+import { readImageDimensions, validateDimensions, shrinkForPuzzle } from "../utils/photoValidation.js";
 import { DEFAULT_PIECE_LEVEL, findPieceLevel, gridForPieceCount } from "../utils/pieceLevels.js";
 
 // Todo corre en el cliente: la foto que sube el jugador no necesita pasar
@@ -64,7 +64,9 @@ export default function SinglePlayer() {
       URL.revokeObjectURL(url);
       throw new Error(dimError);
     }
-    const nextPhoto = { url, width, height };
+    const resized = await shrinkForPuzzle(file, width, height, url);
+    if (resized.url !== url) URL.revokeObjectURL(url);
+    const nextPhoto = { url: resized.url, width: resized.width, height: resized.height };
     setPhoto(nextPhoto);
     resetGame(nextPhoto, pieceLevel);
   }

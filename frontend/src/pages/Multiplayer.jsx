@@ -7,7 +7,7 @@ import ChatPanel from "../components/ChatPanel.jsx";
 import { useSocket } from "../hooks/useSocket.js";
 import { formatTime } from "../utils/formatTime.js";
 import { playNotificationSound } from "../utils/notificationSound.js";
-import { readImageDimensions, validateDimensions } from "../utils/photoValidation.js";
+import { readImageDimensions, validateDimensions, shrinkForPuzzle } from "../utils/photoValidation.js";
 import { uploadPhoto } from "../utils/uploadPhoto.js";
 import { DEFAULT_PIECE_LEVEL } from "../utils/pieceLevels.js";
 
@@ -160,11 +160,16 @@ export default function Multiplayer() {
       URL.revokeObjectURL(localUrl);
       throw new Error(dimError);
     }
+    // Se sube la versión reescalada, no el archivo original: así el otro
+    // jugador tampoco tiene que descargar/decodificar una foto de hasta
+    // 6000px como textura del rompecabezas.
+    const resized = await shrinkForPuzzle(file, width, height, localUrl);
     try {
-      const uploaded = await uploadPhoto(file);
+      const uploaded = await uploadPhoto(resized.file);
       setPendingPhoto(uploaded);
     } finally {
       URL.revokeObjectURL(localUrl);
+      if (resized.url !== localUrl) URL.revokeObjectURL(resized.url);
     }
   }
 

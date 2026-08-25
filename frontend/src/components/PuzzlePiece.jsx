@@ -1,5 +1,32 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Shape } from "react-konva";
+
+// Bounding box del contorno de la pieza, en las mismas coordenadas que usa
+// sceneFunc (absolutas de tablero) — hace falta pasárselo a `.cache()`
+// porque Konva no puede inferirlo solo de un sceneFunc custom. Una curva
+// cúbica siempre queda contenida en el hull convexo de sus puntos de
+// control, así que tomar el min/max de p0..p9 da un box seguro (como mucho
+// un poco más grande de lo estrictamente necesario, nunca más chico).
+function outlineBounds(outline) {
+  let minX = outline.start.x;
+  let maxX = outline.start.x;
+  let minY = outline.start.y;
+  let maxY = outline.start.y;
+  const consider = (x, y) => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
+  for (const edge of outline.edges) {
+    if (edge.type === "line") {
+      consider(edge.to.x, edge.to.y);
+    } else {
+      for (const point of edge.p) consider(point.x, point.y);
+    }
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
 
 // Pieza con recorte tipo jigsaw real: se dibuja el contorno con curvas
 // Bézier (piece.outline) y se recorta la imagen completa sobre ese trazo.
@@ -29,6 +56,7 @@ export default function PuzzlePiece({
 }) {
   const shapeRef = useRef(null);
   const isDraggingRef = useRef(false);
+  const bounds = useMemo(() => outlineBounds(piece.outline), [piece.outline]);
 
   // Sin este límite, un arrastre rápido puede soltar la pieza más allá del
   // lienzo (el Stage de Konva no lo impide solo): queda fuera de los píxeles
@@ -54,6 +82,23 @@ export default function PuzzlePiece({
     if (isDraggingRef.current) return;
     shapeRef.current?.position({ x: piece.x - piece.correctX, y: piece.y - piece.correctY });
   }, [piece.x, piece.y, piece.correctX, piece.correctY]);
+
+  // Sin esto, cada pieza vuelve a recortar y redibujar la foto ENTERA
+  // (drawImage del tamaño completo del tablero) en cada redraw del layer —
+  // y Konva redibuja el layer completo en cada frame mientras se arrastra
+  // cualquier pieza, no solo la que se mueve. Con hasta 192 piezas (nivel
+  // Difícil) y fotos de hasta 6000px de lado eso es carísimo, sobre todo en
+  // tablets. `.cache()` congela el resultado del sceneFunc (recorte +
+  // imagen + sombra) en un bitmap una sola vez; los redraws después son
+  // solo un blit de ese bitmap. Hay que re-cachear cuando cambia algo que
+  // Konva "hornea" en el bitmap (imagen, o el stroke/sombra que dependen de
+  // isMine/isLockedByOther) — la posición no hace falta porque eso es un
+  // transform aparte, no toca el contenido.
+  useLayoutEffect(() => {
+    if (!image) return;
+    shapeRef.current?.cache(bounds);
+    shapeRef.current?.getLayer()?.batchDraw();
+  }, [image, bounds, isMine, isLockedByOther]);
 
   function sceneFunc(context, shape) {
     const { start, edges } = piece.outline;
@@ -92,6 +137,7 @@ export default function PuzzlePiece({
       shadowBlur={isMine ? 14 : 5}
       shadowOffsetY={isMine ? 4 : 2}
       shadowOpacity={isMine ? 0.4 : 0.18}
+      perfectDrawEnabled={false}
       // Nunca se le quita draggable a una pieza mientras Konva la está
       // arrastrando de verdad (isDraggingRef): apagarlo a mitad de un drag
       // deja el drag interno de Konva en un estado corrupto y la pieza queda
