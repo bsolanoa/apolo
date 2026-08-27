@@ -23,6 +23,13 @@ body {
   font-weight: 600;
 }
 
+.version-tag {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: #64748b;
+  vertical-align: middle;
+}
+
 .music-player {
   display: flex;
   align-items: center;

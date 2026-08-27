@@ -144,6 +144,14 @@ sí tiene auto-deploy desde GitHub).
   configurados en el propio bucket como límite adicional (server-side, no solo en
   `upload.js`). El backend sube con la `service_role` key.
 
+## Versión del frontend
+
+`frontend/src/version.js` (`APP_VERSION`) se muestra al lado del logo en el topbar
+(`App.jsx`). Es manual, no se genera desde `package.json` ni git — **hay que
+incrementarla en cada cambio de frontend que se pida**: patch (+0.0.1) para
+ajustes/fixes chicos, minor (+0.1.0, patch a 0) para features nuevas, major para
+rediseños grandes.
+
 ## Decisiones de arquitectura (no reevaluar sin razón nueva)
 
 - El lock/sincronización de piezas se resuelve con estado en memoria del server de Socket.io,
