@@ -4,6 +4,7 @@ import PuzzlePreview from "../components/PuzzlePreview.jsx";
 import PhotoUploader from "../components/PhotoUploader.jsx";
 import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
+import Modal from "../components/Modal.jsx";
 import { useSocket } from "../hooks/useSocket.js";
 import { formatTime } from "../utils/formatTime.js";
 import { playNotificationSound } from "../utils/notificationSound.js";
@@ -61,6 +62,10 @@ export default function Multiplayer() {
   const [lockedPieces, setLockedPieces] = useState(new Map());
   const [elapsed, setElapsed] = useState(0);
   const [completedTime, setCompletedTime] = useState(null);
+  // Separado de `completedTime`: cerrar el popup no debe perder el tiempo
+  // final (todavía hace falta para el banner con el picker de siguiente
+  // ronda, que sigue visible detrás del modal).
+  const [showResultModal, setShowResultModal] = useState(false);
   const [messages, setMessages] = useState([]);
   const lastMoveEmitRef = useRef(0);
   // El handler de chat se registra una sola vez (efecto con [socketRef] como
@@ -81,6 +86,7 @@ export default function Multiplayer() {
       // Un room:state siempre implica "no estamos en la pantalla de
       // completado" (arranque, alguien se unió, o se reinició la partida).
       setCompletedTime(null);
+      setShowResultModal(false);
       setElapsed(0);
     }
 
@@ -103,6 +109,7 @@ export default function Multiplayer() {
 
     function onGameCompleted({ tiempoSegundos }) {
       setCompletedTime(tiempoSegundos);
+      setShowResultModal(true);
     }
 
     function onPlayerLeft() {
@@ -345,6 +352,32 @@ export default function Multiplayer() {
 
   return (
     <div className="page">
+      {completedTime !== null && showResultModal && (
+        <Modal onClose={() => setShowResultModal(false)}>
+          <h3>🎉 ¡Completado en {formatTime(completedTime)}!</h3>
+          {contributions.length > 0 && (
+            <div className="contributions">
+              {contributions.map((c) => (
+                <span key={c.socketId}>
+                  {c.name}: {c.count} piezas
+                </span>
+              ))}
+              {contributionLeaders.length > 0 && contributionLeaders.length < contributions.length && (
+                <div className="contribution-winner">
+                  🏆 {contributionLeaders.map((c) => c.name).join(" y ")} aportó más piezas
+                </div>
+              )}
+            </div>
+          )}
+          <div className="modal-actions">
+            <button onClick={handleRestartGame}>Jugar de nuevo</button>
+            <button className="modal-secondary" onClick={() => setShowResultModal(false)}>
+              Ver tablero
+            </button>
+          </div>
+        </Modal>
+      )}
+
       <div className="hud">
         <h2>Sala {room.id}</h2>
         <p>Jugadores: {room.players.map((p) => p.name).join(", ") || "esperando..."}</p>

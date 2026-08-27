@@ -3,6 +3,7 @@ import PuzzleBoard from "../components/PuzzleBoard.jsx";
 import PuzzlePreview from "../components/PuzzlePreview.jsx";
 import PhotoUploader from "../components/PhotoUploader.jsx";
 import PieceLevelPicker from "../components/PieceLevelPicker.jsx";
+import Modal from "../components/Modal.jsx";
 import { generatePuzzle, isNearCorrectPosition } from "../utils/puzzleGenerator.js";
 import { formatTime } from "../utils/formatTime.js";
 import { saveSinglePlayerResult } from "../supabaseClient.js";
@@ -25,6 +26,10 @@ export default function SinglePlayer() {
   const [started, setStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [completed, setCompleted] = useState(false);
+  // Separado de `completed`: `completed` también controla si ya se guardó
+  // el resultado (no se puede resetear al cerrar el popup sin duplicar el
+  // guardado), así que la visibilidad del modal se maneja aparte.
+  const [showResultModal, setShowResultModal] = useState(false);
   const startRef = useRef(Date.now());
 
   useEffect(() => {
@@ -40,6 +45,7 @@ export default function SinglePlayer() {
   useEffect(() => {
     if (started && allPlaced && !completed) {
       setCompleted(true);
+      setShowResultModal(true);
       const finalTime = Math.floor((Date.now() - startRef.current) / 1000);
       setElapsed(finalTime);
       saveSinglePlayerResult({
@@ -54,6 +60,7 @@ export default function SinglePlayer() {
     setPuzzle(buildPuzzle(nextPhoto, nextLevel));
     setElapsed(0);
     setCompleted(false);
+    setShowResultModal(false);
     setStarted(false);
   }
 
@@ -118,6 +125,19 @@ export default function SinglePlayer() {
       </div>
 
       {puzzle && <PuzzleBoard puzzle={puzzle} interactive={started} onPieceDragEnd={handleDragEnd} />}
+
+      {completed && showResultModal && (
+        <Modal onClose={() => setShowResultModal(false)}>
+          <h3>🎉 ¡Completado!</h3>
+          <p>Tiempo: {formatTime(elapsed)}</p>
+          <div className="modal-actions">
+            <button onClick={handleRestart}>Reiniciar</button>
+            <button className="modal-secondary" onClick={() => setShowResultModal(false)}>
+              Ver tablero
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
