@@ -30,6 +30,10 @@ export default function Multiplayer() {
   const [joinRoomId, setJoinRoomId] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState(null); // { url, width, height }, ya subida al backend
   const [pieceLevel, setPieceLevel] = useState(DEFAULT_PIECE_LEVEL.id);
+  // null: todavía no eligió si crear o unirse. El botón "Comenzar" real de
+  // la sala aparece recién más adelante (cuando hay 2+ jugadores) — esto es
+  // solo el paso previo de "qué querés hacer".
+  const [lobbyMode, setLobbyMode] = useState(null); // null | "create" | "join"
   const [room, setRoom] = useState(null); // room state from server
   const [lockedPieces, setLockedPieces] = useState(new Map());
   const [elapsed, setElapsed] = useState(0);
@@ -181,7 +185,7 @@ export default function Multiplayer() {
     socketRef.current?.emit(
       "room:create",
       {
-        name,
+        name: name.trim(),
         imageUrl: pendingPhoto.url,
         imageWidth: pendingPhoto.width,
         imageHeight: pendingPhoto.height,
@@ -199,7 +203,7 @@ export default function Multiplayer() {
   }
 
   function handleJoinRoom() {
-    socketRef.current?.emit("room:join", { roomId: joinRoomId.trim().toUpperCase(), name }, (res) => {
+    socketRef.current?.emit("room:join", { roomId: joinRoomId.trim().toUpperCase(), name: name.trim() }, (res) => {
       if (res?.ok) {
         setRoom(res.room);
         setLockedPieces(deriveLockedPieces(res.room.puzzle));
@@ -254,29 +258,58 @@ export default function Multiplayer() {
   }
 
   if (!room) {
+    const canJoin = Boolean(name.trim() && joinRoomId.trim());
+    const canCreate = Boolean(name.trim() && pendingPhoto);
+
     return (
       <div className="page lobby">
         <h2>Multiplayer</h2>
         <p>{connected ? "Conectado al servidor" : "Conectando..."}</p>
-        <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
-        <div>
-          <p className="preview-label" style={{ textAlign: "center" }}>
-            Sube la foto (la arma quien crea la sala)
-          </p>
-          <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
-          <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
-        </div>
-        <div className="lobby-actions">
-          <button onClick={handleCreateRoom}>Crear sala</button>
-          <div className="join-row">
+
+        {lobbyMode === null && (
+          <div className="lobby-mode-choice">
+            <button onClick={() => setLobbyMode("create")}>Crear sala</button>
+            <button onClick={() => setLobbyMode("join")}>Unirse a una sala</button>
+          </div>
+        )}
+
+        {lobbyMode === "join" && (
+          <div className="lobby-step">
+            <button className="lobby-back" onClick={() => setLobbyMode(null)}>
+              ← Volver
+            </button>
+            <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
             <input
               placeholder="Código de sala"
               value={joinRoomId}
               onChange={(e) => setJoinRoomId(e.target.value)}
             />
-            <button onClick={handleJoinRoom}>Unirse</button>
+            {!canJoin && <p className="lobby-hint">Completa tu nombre y el código de sala.</p>}
+            <button onClick={handleJoinRoom} disabled={!canJoin}>
+              Unirse
+            </button>
           </div>
-        </div>
+        )}
+
+        {lobbyMode === "create" && (
+          <div className="lobby-step">
+            <button className="lobby-back" onClick={() => setLobbyMode(null)}>
+              ← Volver
+            </button>
+            <input placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} />
+            <div>
+              <p className="preview-label" style={{ textAlign: "center" }}>
+                Sube la foto (la arma quien crea la sala)
+              </p>
+              <PhotoUploader previewUrl={pendingPhoto?.url} busyLabel="Subiendo..." onFile={handleFile} />
+              <PieceLevelPicker selectedId={pieceLevel} onSelect={setPieceLevel} />
+            </div>
+            {!canCreate && <p className="lobby-hint">Completa tu nombre y sube una foto para crear la sala.</p>}
+            <button onClick={handleCreateRoom} disabled={!canCreate}>
+              Crear sala
+            </button>
+          </div>
+        )}
       </div>
     );
   }
